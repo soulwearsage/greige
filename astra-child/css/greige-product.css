@@ -1,0 +1,47 @@
+/* ═══════════════════════════════════════
+   GREIGE PRODUCT PAGE
+   商品詳細ページ固有スタイル
+═══════════════════════════════════════ */
+
+/* ── 商品画像 ──────────────────────── */
+.gp-img-wrap {
+    width: 100%;
+    margin-bottom: 28px;
+}
+
+.gp-img-wrap img {
+    width: 100%;
+    max-width: 520px;
+    height: auto;
+    display: block;
+}
+
+/* ── 価格（sg-meta内） ─────────────── */
+.sg-meta .gp-price {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    color: var(--dark);
+}
+
+/* ── セール価格 ────────────────────── */
+.sg-meta .gp-price-sale {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--red);
+}
+
+.sg-meta .gp-price-original {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 13px;
+    color: var(--dark);
+    opacity: 0.45;
+    text-decoration: line-through;
+}
+
+/* ── アフィリエイトカード枠 ─────────── */
+.gp-aff-wrap {
+    margin-bottom: 36px;
+}

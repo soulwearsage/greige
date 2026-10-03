@@ -1,0 +1,335 @@
+/* ═══════════════════════════════════════
+   GREIGE AFFILIATE CARD
+   アフィリエイトカードコンポーネント
+   （投稿・EDIT・商品ページ共通）
+═══════════════════════════════════════ */
+
+.aff-card {
+    border: 1px solid var(--light);
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 36px 0;
+}
+
+@media (min-width: 640px) {
+    .aff-card {
+        flex-direction: row;
+    }
+}
+
+/* ── 画像エリア ────────────────────── */
+.aff-card-img {
+    flex: 0 0 auto;
+    width: 100%;
+    overflow: hidden;
+}
+
+@media (min-width: 640px) {
+    .aff-card-img {
+        width: 220px;
+        border-right: 1px solid var(--light);
+    }
+}
+
+@media (min-width: 1024px) {
+    .aff-card-img {
+        width: 260px;
+    }
+}
+
+.aff-card-img img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    aspect-ratio: 4 / 3;
+}
+
+@media (min-width: 640px) {
+    .aff-card-img img {
+        aspect-ratio: auto;
+        min-height: 200px;
+    }
+}
+
+.aff-card-img--empty {
+    background: var(--off);
+    min-height: 120px;
+}
+
+@media (min-width: 640px) {
+    .aff-card-img--empty {
+        min-height: 200px;
+    }
+}
+
+/* ── 情報エリア ────────────────────── */
+.aff-card-body {
+    flex: 1;
+    min-width: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+@media (min-width: 640px) {
+    .aff-card-body {
+        padding: 24px 24px 20px;
+    }
+}
+
+.aff-card-brand {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 9.5px;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gray);
+    margin: 0;
+    line-height: 1;
+}
+
+.aff-card-name {
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--dark);
+    margin: 2px 0 0;
+    line-height: 1.45;
+}
+
+@media (min-width: 640px) {
+    .aff-card-name {
+        font-size: 17px;
+    }
+}
+
+.aff-card-note {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    font-weight: 300;
+    line-height: 1.75;
+    color: var(--gray);
+    margin: 4px 0 0;
+}
+
+/* ── 価格 ──────────────────────────── */
+.aff-card-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 8px 0 4px;
+    padding-top: 10px;
+    border-top: 0.5px solid var(--light);
+}
+
+.aff-card-price-label {
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--dark);
+    white-space: nowrap;
+}
+
+.aff-card-price {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: #c97080;
+    line-height: 1;
+}
+
+/* ── ボタン群 ──────────────────────── */
+.aff-card-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.aff-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 16px 12px;
+    background: var(--dark);
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    transition: opacity 0.2s;
+    box-sizing: border-box;
+}
+
+.aff-btn-label {
+    display: block;
+    text-decoration: none;
+}
+
+.aff-btn-price {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    margin-top: 5px;
+    opacity: 0.85;
+    text-decoration: none;
+}
+
+.aff-btn:hover {
+    color: #fff;
+    opacity: 0.65;
+    text-decoration: none;
+}
+
+.aff-btn--outline {
+    background: transparent;
+    color: var(--dark);
+    border: 1px solid var(--dark);
+}
+
+.aff-btn--outline:hover {
+    color: var(--dark);
+    opacity: 0.55;
+}
+
+/* ── 商品ページ注入カード ──────────── */
+.gp-aff-inject {
+    margin: 36px 0;
+}
+
+.gp-aff-inject .aff-card-img {
+    width: 100%;
+}
+
+/* .sg-body img { margin: 1.5em 0 } の影響をリセット（全幅対応） */
+.gp-aff-inject img {
+    margin: 0;
+}
+
+/* メイン画像：PC・モバイル共通でスクエア */
+.gp-aff-inject #gp-main-img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    display: block;
+    object-fit: cover;
+}
+
+/* モバイル：スクエア画像・均等パディング */
+@media (max-width: 639px) {
+    .gp-aff-inject .aff-card {
+        padding: 40px;
+        gap: 20px;
+    }
+    .gp-aff-inject #gp-main-img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        display: block;
+        object-fit: cover;
+    }
+    .gp-aff-inject .aff-card-thumbs {
+        border-top: none;
+        padding: 0;
+        margin-top: 20px;
+        gap: 8px;
+    }
+    .gp-aff-inject .aff-card-body {
+        padding: 0;
+    }
+}
+
+@media (min-width: 640px) {
+    .gp-aff-inject .aff-card {
+        padding: 80px;
+        gap: 40px;
+    }
+    .gp-aff-inject .aff-card-img {
+        width: 50%;
+        flex: 0 0 50%;
+        border-right: none;
+    }
+    .gp-aff-inject .aff-card-body {
+        padding: 0;
+    }
+}
+
+@media (min-width: 1024px) {
+    .gp-aff-inject .aff-card-img {
+        width: 50%;
+        flex: 0 0 50%;
+    }
+}
+
+.gp-aff-inject .aff-card-btns a {
+    font-size: 16px;
+    padding: 16px 20px;
+    text-decoration: none;
+    color: #fff;
+}
+
+.gp-aff-inject .aff-card-btns a.aff-btn--outline {
+    color: var(--dark);
+}
+
+.gp-aff-inject .aff-btn-label,
+.gp-aff-inject .aff-btn-price {
+    text-decoration: none;
+}
+
+@media (max-width: 639px) {
+    .gp-aff-inject .aff-btn-price {
+        font-size: 16px;
+    }
+}
+
+.aff-card-thumbs {
+    display: flex;
+    gap: 6px;
+    padding: 8px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--light);
+}
+
+.aff-card-thumbs .aff-thumb {
+    width: 52px;
+    height: 52px;
+    min-height: 0;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.aff-card-thumbs .aff-thumb.is-active,
+.aff-card-thumbs .aff-thumb:hover {
+    opacity: 1;
+}
+
+/* ── 商品ページ内のカード調整 ───────── */
+.gp-page-meta .aff-card {
+    margin: 24px 0 0;
+    border: none;
+    padding: 0;
+}
+
+.gp-page-meta .aff-card-body {
+    padding: 0;
+}
+
+.gp-page-meta .aff-card-brand,
+.gp-page-meta .aff-card-name,
+.gp-page-meta .aff-card-price-row {
+    display: none;
+}

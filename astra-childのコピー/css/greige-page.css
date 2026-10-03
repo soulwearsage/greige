@@ -1,0 +1,46 @@
+/* ═══════════════════════════════════════
+   GREIGE PAGE
+   WordPress 標準ページ用レイアウト
+═══════════════════════════════════════ */
+
+.gp-wrap { padding-top: 60px; background: #fff; }
+@media (min-width: 768px) { .gp-wrap { padding-top: 56px; } }
+
+.gp-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 16px 80px;
+}
+@media (min-width: 768px) {
+    .gp-content { padding: 56px 40px 100px; }
+}
+@media (min-width: 1024px) {
+    .gp-content { padding: 56px var(--rail) 120px; }
+}
+
+.gp-title {
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 20px; font-weight: 700; letter-spacing: 0;
+    color: var(--dark); margin-bottom: 32px; line-height: 1.4;
+}
+@media (min-width: 768px) { .gp-title { font-size: 26px; } }
+
+.gp-body {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px; font-weight: 400; line-height: 1.9;
+    color: var(--dark);
+}
+.gp-body p { margin-bottom: 1.6em; }
+.gp-body h2 {
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 17px; font-weight: 700; margin: 2em 0 0.8em;
+}
+.gp-body h3 {
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 15px; font-weight: 700; margin: 1.6em 0 0.6em;
+}
+.gp-body a { color: var(--dark); text-decoration: underline; }
+.gp-body a:hover { opacity: 0.55; }
+.gp-body ul, .gp-body ol { padding-left: 1.4em; margin-bottom: 1.6em; }
+.gp-body li { margin-bottom: 0.4em; }
+.gp-body img { max-width: 100%; height: auto; display: block; margin: 2em 0; }

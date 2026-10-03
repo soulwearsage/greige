@@ -1,0 +1,43 @@
+/* ═══════════════════════════════════════
+   GREIGE COMPONENTS
+   パンくず・タグ・フェードイン・SNSシェア
+═══════════════════════════════════════ */
+
+/* ── パンくずリスト ─────────────────── */
+nav.sg-bc {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    font-family: var(--nav-font); font-size: 10px;
+    letter-spacing: 0.06em; font-weight: 400;
+    margin-bottom: 12px;
+}
+nav.sg-bc a { color: #888; text-decoration: none; }
+nav.sg-bc .sg-bc-current { color: #1a1a1a; }
+nav.sg-bc .sg-bc-sep { color: #ccc; margin: 0 2px; }
+
+/* ── カプセルタグ ───────────────────── */
+.sg-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.sg-tag {
+    display: inline-block; padding: 5px 14px;
+    border: 1px solid #1a1a1a; border-radius: 20px;
+    background: #fff;
+    font-family: var(--nav-font); font-size: 10px; letter-spacing: 0.12em;
+    color: #1a1a1a; text-decoration: none;
+    transition: color 0.2s, border-color 0.2s; font-weight: 400;
+}
+a.sg-tag:hover { color: #999; border-color: #999; }
+
+/* ── スクロールフェードイン ─────────── */
+.sg-fade {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.sg-fade.is-visible { opacity: 1; transform: translateY(0); }
+
+/* ── AddToAny SNSシェアボタン ───────── */
+.addtoany_content { margin-top: 48px !important; margin-left: auto !important; margin-right: auto !important; text-align: center !important; }
+.addtoany_content .a2a_kit { justify-content: center !important; }
+@media (min-width: 768px) {
+    .addtoany_content { margin-left: auto !important; margin-right: 0 !important; text-align: right !important; }
+    .addtoany_content .a2a_kit { justify-content: flex-end !important; }
+}

@@ -1,0 +1,127 @@
+/* ═══════════════════════════════════════
+   GREIGE EDIT STYLES
+   single-greige_edit.php 専用
+═══════════════════════════════════════ */
+
+/* アイキャッチ */
+.sg-edit-thumb { width: 100%; margin-bottom: 14px; }
+.sg-edit-thumb img { width: 100%; height: auto; display: block; }
+
+/* PR NOTICE */
+.gpr-notice { margin-bottom: 20px; padding: 10px 16px; background: #f9f7f5; border-left: 2px solid var(--greige); }
+.gpr-text {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px; font-weight: 300; color: var(--dark); letter-spacing: 0.05em; line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════
+   PRODUCT CARD（インライン・SHOP THE EDIT共通）
+═══════════════════════════════════════ */
+.gp-card { margin: 2em 0; }
+.gp-card-inner { display: flex; gap: 16px; align-items: flex-start; border: 1px solid var(--light); padding: 16px; }
+.gp-card-img { flex: 0 0 88px; width: 88px; }
+.gp-card-img img { width: 100%; height: auto; display: block; }
+.gp-card-img-placeholder { width: 88px; height: 112px; background: var(--light); }
+.gp-card-info { flex: 1; min-width: 0; }
+.gp-card-brand {
+    font-family: var(--nav-font); font-size: 10px; letter-spacing: 0.18em;
+    color: var(--dark); text-transform: uppercase; margin-bottom: 5px;
+}
+.gp-card-title {
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px; font-weight: 400; line-height: 1.6; margin-bottom: 8px; color: var(--dark);
+}
+.gp-card-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.gp-card-price-regular { font-family: var(--nav-font); font-size: 14px; font-weight: 400; color: var(--dark); }
+.gp-card-price-original { font-family: var(--nav-font); font-size: 12px; color: var(--dark); opacity: 0.45; text-decoration: line-through; }
+.gp-card-price-sale { font-family: var(--nav-font); font-size: 14px; font-weight: 400; color: var(--red); }
+.gp-card-attr { font-family: 'Noto Sans JP', sans-serif; font-size: 11px; font-weight: 300; color: var(--dark); margin-bottom: 3px; }
+.gp-card-attr-label { display: inline-block; width: 44px; color: var(--dark); font-size: 10px; }
+.gp-card-comment { font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 300; color: var(--dark); margin-top: 8px; margin-bottom: 8px; line-height: 1.8; }
+.gp-card-cta {
+    display: inline-block; margin-top: 12px; padding: 7px 18px;
+    border: 1px solid var(--dark); font-family: var(--nav-font);
+    font-size: 10px; letter-spacing: 0.18em; color: var(--dark);
+    text-decoration: none; transition: background 0.2s, color 0.2s;
+}
+.gp-card-cta:hover { background: var(--dark); color: #fff; }
+.gp-card--inline .gp-card-inner { padding: 12px; }
+.gp-card--inline .gp-card-img { flex: 0 0 72px; width: 72px; }
+.gp-card--inline .gp-card-img-placeholder { width: 72px; height: 90px; }
+@media (min-width: 768px) {
+    .gp-card-img { flex: 0 0 120px; width: 120px; }
+    .gp-card-img-placeholder { width: 120px; height: 150px; }
+    .gp-card-inner { padding: 20px; gap: 20px; }
+    .gp-card-title { font-size: 15px; }
+    .gp-card--inline .gp-card-img { flex: 0 0 96px; width: 96px; }
+    .gp-card--inline .gp-card-img-placeholder { width: 96px; height: 120px; }
+}
+
+/* ═══════════════════════════════════════
+   SHOP THE EDIT
+═══════════════════════════════════════ */
+.ste-section { margin-top: 60px; padding-top: 40px; border-top: 2.5px solid var(--dark); }
+.ste-header { margin-bottom: 28px; position: relative; }
+.ste-header::after { content: ''; position: absolute; top: 3px; left: 0; right: 0; height: 0.5px; background: var(--dark); pointer-events: none; }
+.ste-title {
+    font-family: var(--nav-font); font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
+    color: var(--dark); display: block; padding: 10px 0; border-bottom: 2.5px solid var(--dark); position: relative;
+}
+.ste-title::after { content: ''; position: absolute; bottom: 3px; left: 0; right: 0; height: 0.5px; background: var(--dark); }
+.ste-grid { display: flex; flex-direction: column; gap: 0; }
+.ste-grid .gp-card { margin: 0; }
+.ste-grid .gp-card + .gp-card { border-top: 1px solid var(--light); }
+.ste-grid .gp-card .gp-card-inner { border: none; padding: 20px 0; }
+
+/* ═══════════════════════════════════════
+   比較テーブル
+═══════════════════════════════════════ */
+.gc-compare { margin: 2em 0; }
+.gc-compare-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.gc-compare-table { width: 100%; min-width: 400px; border-collapse: collapse; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 300; }
+.gc-th { text-align: left; padding: 12px 16px; border-bottom: 2.5px solid var(--dark); font-family: var(--nav-font); font-weight: 600; font-size: 11px; vertical-align: top; }
+.gc-th--label { width: 80px; min-width: 80px; }
+.gc-th-brand { display: block; font-size: 10px; letter-spacing: 0.18em; color: var(--dark); text-transform: uppercase; margin-bottom: 4px; }
+.gc-th-name { display: block; font-size: 12px; letter-spacing: 0.05em; color: var(--dark); line-height: 1.4; }
+.gc-td-label { padding: 12px 16px 12px 0; font-family: var(--nav-font); font-size: 10px; letter-spacing: 0.18em; color: var(--dark); border-bottom: 1px solid var(--light); vertical-align: top; white-space: nowrap; }
+.gc-td { padding: 12px 16px; border-bottom: 1px solid var(--light); color: var(--dark); vertical-align: top; line-height: 1.7; }
+.gc-td-empty { color: #ccc; }
+.gc-tr-cta .gc-td-label,
+.gc-tr-cta .gc-td { border-bottom: none; border-top: 2px solid var(--dark); padding-top: 14px; }
+.gc-cta-link {
+    display: inline-block; padding: 6px 14px; border: 1px solid var(--dark);
+    font-family: var(--nav-font); font-size: 10px; letter-spacing: 0.14em;
+    color: var(--dark); text-decoration: none; white-space: nowrap; transition: background 0.2s, color 0.2s;
+}
+.gc-cta-link:hover { background: var(--dark); color: #fff; }
+
+/* ═══════════════════════════════════════
+   EDIT CONTENT BLOCKS
+═══════════════════════════════════════ */
+.geb-text { font-family: 'Noto Sans JP', sans-serif; font-size: 15px; line-height: 2; font-weight: 300; color: var(--dark); margin-bottom: 0.4em; }
+.geb-text p { margin-bottom: 1.6em; }
+.geb-text h2 { font-size: 20px; font-weight: 500; margin: 2em 0 0.8em; padding-bottom: 8px; border-bottom: 1px solid var(--light); }
+.geb-text h3 { font-size: 17px; font-weight: 500; margin: 1.6em 0 0.6em; }
+.geb-text a { color: var(--dark); text-decoration: underline; text-underline-offset: 3px; }
+.geb-text ul, .geb-text ol { padding-left: 1.5em; margin-bottom: 1.6em; }
+.geb-text li { margin-bottom: 0.4em; }
+.geb-text img { max-width: 100%; height: auto; margin: 1.5em 0; }
+.geb-text blockquote { border-left: 2px solid var(--greige); padding: 8px 20px; margin: 1.6em 0; }
+
+.geb-h2 { font-family: 'Noto Sans JP', sans-serif; font-size: 20px; font-weight: 500; margin: 2em 0 0.8em; padding-bottom: 8px; border-bottom: 1px solid var(--light); color: var(--dark); }
+.geb-h3 { font-family: 'Noto Sans JP', sans-serif; font-size: 17px; font-weight: 500; margin: 1.6em 0 0.6em; color: var(--dark); }
+.geb-h4 { font-family: 'Noto Sans JP', sans-serif; font-size: 15px; font-weight: 500; margin: 1.4em 0 0.5em; color: var(--dark); }
+
+.geb-image { margin: 2em 0; }
+.geb-image img { width: 100%; height: auto; display: block; }
+.geb-caption { font-family: 'Noto Sans JP', sans-serif; font-size: 11px; font-weight: 300; color: var(--gray); margin-top: 8px; line-height: 1.5; }
+
+.geb-ec { margin: 2em 0; padding: 20px 24px; background: var(--off); border-left: 2px solid var(--greige); }
+.geb-ec-label { display: block; font-family: var(--nav-font); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gray); margin-bottom: 10px; }
+.geb-ec-text { font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 300; line-height: 1.9; color: var(--dark); }
+
+.geb-product { margin: 2em 0; }
+.geb-pg { margin: 2em 0; }
+.geb-pg .gp-card { margin: 0; }
+.geb-pg .gp-card + .gp-card { border-top: 1px solid var(--light); }
+.geb-pg .gp-card .gp-card-inner { border: none; padding: 16px 0; }

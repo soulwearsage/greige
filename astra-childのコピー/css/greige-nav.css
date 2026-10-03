@@ -1,0 +1,124 @@
+/* ═══════════════════════════════════════
+   GREIGE NAV
+   ヘッダー・ナビオーバーレイ・フッター
+═══════════════════════════════════════ */
+
+/* ── ヘッダー（header-single.php でインライン定義済み・競合防止のため最小定義） ── */
+.gfx-header { display: none; }
+.gv2-hbar   { display: none; }
+
+/* ── Nav Overlay ───────────────────── */
+.g-nav-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 19000; }
+.g-nav-bg.open,
+.g-nav-bg.is-open { display: block; }
+.g-nav {
+    position: fixed; top: 0; right: -300px;
+    width: 300px; height: 100vh;
+    background: #fff; z-index: 19001;
+    transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+    padding: 56px 28px 40px;
+    display: flex; flex-direction: column; gap: 0;
+    overflow-y: auto;
+}
+.g-nav.open,
+.g-nav.is-open { right: 0; }
+button.g-nav-close {
+    position: absolute; top: 36px; right: 16px;
+    background: transparent; border: none;
+    box-shadow: none; outline: none;
+    color: #1a1a1a; font-size: 20px;
+    cursor: pointer; line-height: 1; padding: 0;
+    -webkit-appearance: none; appearance: none;
+}
+.admin-bar button.g-nav-close {
+    top: 6px;
+}
+
+/* ── Nav search form ───────────────── */
+.g-nav-search {
+    display: flex; align-items: flex-end; gap: 0;
+    border-bottom: 0.5px solid var(--dark); margin-top: 20px;
+}
+.g-nav .g-nav-search-input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    box-shadow: none; -webkit-appearance: none; appearance: none; border-radius: 0;
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 16px; letter-spacing: 0.04em;
+    color: var(--dark); padding: 9px 0; min-width: 0;
+}
+.g-nav .g-nav-search-input::-webkit-search-decoration,
+.g-nav .g-nav-search-input::-webkit-search-cancel-button { display: none; }
+html body .g-nav button.g-nav-search-btn,
+html body .g-nav button.g-nav-search-btn:link,
+html body .g-nav button.g-nav-search-btn:visited {
+    display: flex; align-items: center;
+    background: #1a1a1a; background-color: #1a1a1a;
+    border: 0; outline: 0; cursor: pointer;
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #fff; padding: 10px 14px; white-space: nowrap;
+    -webkit-appearance: none; appearance: none; transition: opacity 0.2s;
+    box-shadow: none; border-radius: 0;
+}
+html body .g-nav button.g-nav-search-btn:hover { opacity: 0.65; background-color: #1a1a1a; color: #fff; }
+.g-nav-social { margin-top: 8px; padding-top: 24px; border-top: 1px solid #e8e4df; display: flex; gap: 16px; align-items: center; }
+.g-nav-wp-link { display: none; }
+@media (max-width: 767px) { .g-nav-wp-link { display: flex; opacity: 0.4; } }
+.g-nav-wp-link:hover { opacity: 0.7; }
+.g-nav .g-nav-social a { display: flex; color: #1a1a1a; fill: #1a1a1a; transition: opacity 0.2s; }
+.g-nav .g-nav-social a:hover { color: #1a1a1a; opacity: 0.45; }
+.g-nav .g-nav-social svg { width: 18px; height: 18px; fill: currentColor; }
+body .g-nav ul { list-style: none; padding: 0; margin: 0; }
+body .g-nav ul li { list-style: none; border: none; margin: 0; padding: 0; }
+body .g-nav ul li a {
+    display: block; color: #1a1a1a;
+    font-size: 15px; letter-spacing: -0.02em; padding: 10px 0;
+    font-family: var(--nav-font); font-weight: 600;
+    text-transform: uppercase; border: none; text-decoration: none;
+}
+body .g-nav ul li a:hover { opacity: 0.45; color: #1a1a1a; }
+.g-nav-board-link {
+    display: block; color: #1a1a1a;
+    font-size: 15px; letter-spacing: -0.02em; padding: 10px 0;
+    font-family: var(--nav-font); font-weight: 600;
+    text-transform: uppercase; text-decoration: none;
+}
+.g-nav-board-link:hover { opacity: 0.45; }
+@media (max-width: 767px) {
+    .g-nav-board-link {
+        font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 18px; padding: 7px 0;
+    }
+    body .g-nav ul li a {
+        font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 18px; padding: 7px 0;
+    }
+}
+
+/* ── フッター ──────────────────────── */
+/* フッターは greige-footer.css に移動 */
+
+/* ── MOON セクション ─────────────────── */
+.g-nav-moon { margin-top: 24px; padding-top: 20px; }
+.g-nav-moon-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.g-nav-moon-title {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: var(--dark);
+}
+.g-nav-moon-ym {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10px; font-weight: 400; letter-spacing: 0.12em; color: var(--gray);
+}
+.g-nav-moon-phases { display: flex; justify-content: space-between; }
+.g-nav-moon-phase { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
+.g-nav-moon-phase:first-child { align-items: flex-start; }
+.g-nav-moon-phase:last-child { align-items: flex-end; }
+.g-nav-moon-date {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10px; font-weight: 400; letter-spacing: 0.04em; color: var(--dark);
+}
+.g-nav-moon-label {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 8.5px; font-weight: 400; letter-spacing: 0.05em;
+    color: var(--gray); text-align: center; line-height: 1.3;
+}

@@ -1,0 +1,203 @@
+/* ═══════════════════════════════════════
+   GREIGE NAV
+   ヘッダー・ナビオーバーレイ（下層ページ共通）
+   ここを変えれば全非フロントページに反映
+═══════════════════════════════════════ */
+
+/* ── モバイルヘッダー ─────────────────── */
+/* 構造: 全ページ共通 */
+.gfx-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+    -webkit-transform: translateZ(0); transform: translateZ(0);
+    -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
+/* 外観: 下層ページのみ（トップページは greige-front.css が制御） */
+body:not(.greige-front-gothic) .gfx-header {
+    background: rgba(255,255,255,0.97);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.07);
+}
+.admin-bar .gfx-header { top: 32px; }
+body:not(.greige-front-gothic) .gfx-logo {
+    display: block; padding: 10px 0 10px 16px;
+    pointer-events: all; flex: 1; min-width: 0;
+}
+body:not(.greige-front-gothic) .gfx-logo img { width: 110px; height: auto; }
+button.gfx-menu-btn {
+    background: transparent; border: none; box-shadow: none; cursor: pointer;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 7px;
+    pointer-events: all; flex-shrink: 0;
+    -webkit-appearance: none; appearance: none; transition: opacity 0.2s;
+}
+button.gfx-menu-btn:hover { opacity: 0.45; }
+button.gfx-menu-btn:focus, button.gfx-menu-btn:active {
+    background: transparent; box-shadow: none; outline: none;
+}
+.gfx-menu-btn span { display: block; width: 25px; height: 2px; background: var(--dark); }
+
+/* PCヘッダー：モバイルでは非表示 */
+.gv2-hbar { display: none; }
+
+/* ── PC ≥768px ───────────────────────── */
+@media (min-width: 768px) {
+    .gfx-header { display: none; }
+    .gv2-hbar {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+        width: 100vw; height: var(--rail);
+        display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center;
+        padding-left: var(--rail); padding-right: 0;
+        background: #fff; border-bottom: 1px solid var(--light);
+        pointer-events: all;
+    }
+    .admin-bar .gv2-hbar { top: 32px; }
+    .gv2-hbar-logo { flex: 0 0 auto; }
+    .gv2-hbar-logo img { width: 80px; height: auto; display: block; }
+    .gv2-hbar-nav {
+        flex: 1; min-width: 0;
+        display: flex; align-items: center; justify-content: flex-end;
+        padding-right: 0; overflow: hidden;
+    }
+    .gv2-hbar-nav ul, .gv2-hbar-nav .menu {
+        display: flex; flex-direction: row; flex-wrap: nowrap; list-style: none;
+        gap: 28px; align-items: center; margin: 0; padding: 0;
+    }
+    .gv2-hbar-nav ul li { margin: 0; padding: 0; }
+    .gv2-hbar-nav ul li a {
+        font-family: var(--nav-font); font-size: 12px; font-weight: 600; line-height: 1;
+        letter-spacing: -0.02em; text-transform: uppercase; color: var(--dark);
+        transition: opacity 0.2s; display: block; padding: 0; margin: 0; text-decoration: none;
+    }
+    .gv2-hbar-nav ul li a:hover { opacity: 0.45; }
+    button.gv2-hbar-btn {
+        position: static; flex: 0 0 67px; background: transparent; border: none;
+        box-shadow: none; cursor: pointer; height: var(--rail);
+        display: flex; flex-direction: column; gap: 8px;
+        align-items: center; justify-content: center;
+        -webkit-appearance: none; appearance: none; transition: opacity 0.2s; padding: 0;
+    }
+    button.gv2-hbar-btn:hover { opacity: 0.45; }
+    button.gv2-hbar-btn:focus { outline: none; }
+    .gv2-hbar-btn span { display: block; width: 24px; height: 2px; background: var(--dark); }
+    .admin-bar .g-nav { top: 32px; height: calc(100vh - 32px); }
+    .admin-bar .g-nav-bg { top: 32px; }
+}
+@media (min-width: 1024px) { .gv2-hbar-logo img { width: 94px; } }
+
+/* ── モバイル管理バー ────────────────── */
+@media screen and (max-width: 782px) {
+    .admin-bar .gfx-header { top: 46px; }
+    .admin-bar .g-nav { top: 46px; height: calc(100vh - 46px); }
+    .admin-bar .g-nav-bg { top: 46px; }
+}
+/* ── Nav Overlay ───────────────────── */
+.g-nav-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 19000; }
+.g-nav-bg.open,
+.g-nav-bg.is-open { display: block; }
+.g-nav {
+    position: fixed; top: 0; right: -300px;
+    width: 300px; height: 100vh;
+    background: #fff; z-index: 19001;
+    transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+    padding: 44px 28px 40px;
+    display: flex; flex-direction: column; gap: 0;
+    overflow-y: auto;
+}
+.g-nav.open,
+.g-nav.is-open { right: 0; }
+
+/* ✕ボタン：ハンバーガーボタンと同じ高さに（管理バーオフセット込みで top:14px が正解） */
+button.g-nav-close {
+    position: absolute; top: 14px; right: 16px;
+    background: transparent; border: none;
+    box-shadow: none; outline: none;
+    color: #1a1a1a; font-size: 20px;
+    cursor: pointer; line-height: 1; padding: 0;
+    -webkit-appearance: none; appearance: none;
+}
+
+/* ── Nav search form ───────────────── */
+.g-nav-search {
+    display: flex; align-items: flex-end; gap: 0;
+    border-bottom: 0.5px solid var(--dark); margin-top: 20px;
+}
+.g-nav .g-nav-search-input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    box-shadow: none; -webkit-appearance: none; appearance: none; border-radius: 0;
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 16px; letter-spacing: 0.04em;
+    color: var(--dark); padding: 9px 0; min-width: 0;
+}
+.g-nav .g-nav-search-input::-webkit-search-decoration,
+.g-nav .g-nav-search-input::-webkit-search-cancel-button { display: none; }
+html body .g-nav button.g-nav-search-btn,
+html body .g-nav button.g-nav-search-btn:link,
+html body .g-nav button.g-nav-search-btn:visited {
+    display: flex; align-items: center;
+    background: #1a1a1a; background-color: #1a1a1a;
+    border: 0; outline: 0; cursor: pointer;
+    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #fff; padding: 10px 14px; white-space: nowrap;
+    -webkit-appearance: none; appearance: none; transition: opacity 0.2s;
+    box-shadow: none; border-radius: 0;
+}
+html body .g-nav button.g-nav-search-btn:hover { opacity: 0.65; background-color: #1a1a1a; color: #fff; }
+.g-nav-social { margin-top: 8px; padding-top: 24px; border-top: 1px solid #e8e4df; display: flex; gap: 16px; align-items: center; }
+.g-nav-wp-link { display: none; }
+@media (max-width: 767px) { .g-nav-wp-link { display: flex; opacity: 0.4; } }
+.g-nav-wp-link:hover { opacity: 0.7; }
+.g-nav .g-nav-social a { display: flex; color: #1a1a1a; fill: #1a1a1a; transition: opacity 0.2s; }
+.g-nav .g-nav-social a:hover { color: #1a1a1a; opacity: 0.45; }
+.g-nav .g-nav-social svg { width: 18px; height: 18px; fill: currentColor; }
+body .g-nav ul { list-style: none; padding: 0; margin: 0; }
+body .g-nav ul li { list-style: none; border: none; margin: 0; padding: 0; }
+body .g-nav ul li a {
+    display: block; color: #1a1a1a;
+    font-size: 15px; letter-spacing: -0.02em; padding: 10px 0;
+    font-family: var(--nav-font); font-weight: 600;
+    text-transform: uppercase; border: none; text-decoration: none;
+}
+body .g-nav ul li a:hover { opacity: 0.45; color: #1a1a1a; }
+.g-nav-board-link {
+    display: block; color: #1a1a1a;
+    font-size: 15px; letter-spacing: -0.02em; padding: 10px 0;
+    font-family: var(--nav-font); font-weight: 600;
+    text-transform: uppercase; text-decoration: none;
+}
+.g-nav-board-link:hover { opacity: 0.45; }
+@media (max-width: 767px) {
+    .g-nav-board-link {
+        font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 18px; padding: 7px 0;
+    }
+    body .g-nav ul li a {
+        font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 18px; padding: 7px 0;
+    }
+}
+
+/* ── MOON セクション ─────────────────── */
+.g-nav-moon { margin-top: 24px; padding-top: 20px; }
+.g-nav-moon-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.g-nav-moon-title {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: var(--dark);
+}
+.g-nav-moon-ym {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10px; font-weight: 400; letter-spacing: 0.12em; color: var(--gray);
+}
+.g-nav-moon-phases { display: flex; justify-content: space-between; }
+.g-nav-moon-phase { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
+.g-nav-moon-phase:first-child { align-items: flex-start; }
+.g-nav-moon-phase:last-child { align-items: flex-end; }
+.g-nav-moon-date {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10px; font-weight: 400; letter-spacing: 0.04em; color: var(--dark);
+}
+.g-nav-moon-label {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 8.5px; font-weight: 400; letter-spacing: 0.05em;
+    color: var(--gray); text-align: center; line-height: 1.3;
+}

@@ -1,0 +1,13 @@
+/*
+ Theme Name:   Astra Child - GREIGE
+ Theme URI:    https://greige.online
+ Description:  GREIGE MAGAZINE child theme
+ Author:       GREIGE
+ Template:     astra
+ Version:      1.0.0
+ Text Domain:  astra-child-greige
+*/
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+}
