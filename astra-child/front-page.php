@@ -363,10 +363,17 @@ if ($logo_id) {
             </div>
         </form>
         <div class="gv2-slide-counter">
-            <span class="gv2-counter-num">01 / <?php echo esc_html($vol_display); ?></span>
+            <span class="gv2-counter-num"><span id="gv2SlideNum">01</span> / <span id="gv2SlideTotal"><?php echo str_pad(count($cover_images), 2, '0', STR_PAD_LEFT); ?></span></span>
+            <?php if (count($cover_images) > 1): ?>
+            <div class="gv2-counter-dots" id="gv2CounterDots">
+                <?php for ($di = 0; $di < count($cover_images); $di++): ?>
+                <button class="gv2-dot<?php echo $di === 0 ? ' is-active' : ''; ?>" data-slide="<?php echo $di; ?>" aria-label="スライド<?php echo $di + 1; ?>へ"></button>
+                <?php endfor; ?>
+            </div>
+            <?php endif; ?>
             <div class="gv2-counter-arrows">
-                <button aria-label="前へ">&#8592;</button>
-                <button aria-label="次へ">&#8594;</button>
+                <button id="gv2SlidePrev" aria-label="前へ">&#8592;</button>
+                <button id="gv2SlideNext" aria-label="次へ">&#8594;</button>
             </div>
         </div>
     </footer>
@@ -852,34 +859,55 @@ foreach ($remaining_cats as $ri => $rcat):
     var masterCont   = photoCont || rightCont;
     if (!masterCont) return;
     var masterSlides = Array.from(masterCont.querySelectorAll('.cover-slide'));
+    var total = masterSlides.length;
+
+    var counterNum = document.getElementById('gv2SlideNum');
+    var dots       = Array.from(document.querySelectorAll('.gv2-dot'));
+    var btnPrev    = document.getElementById('gv2SlidePrev');
+    var btnNext    = document.getElementById('gv2SlideNext');
+
+    var current = 0;
 
     function applyLogoColor(idx) {
         if (!header || !masterSlides[idx]) return;
-        if (masterSlides[idx].dataset.logoColor === 'white_half') {
-            header.classList.add('logo-white-half');
-        } else {
-            header.classList.remove('logo-white-half');
-        }
+        header.classList.toggle('logo-white-half', masterSlides[idx].dataset.logoColor === 'white_half');
+    }
+
+    function updateUI(idx) {
+        if (counterNum) counterNum.textContent = String(idx + 1).padStart(2, '0');
+        dots.forEach(function(d, i) { d.classList.toggle('is-active', i === idx); });
+    }
+
+    function goTo(idx) {
+        [photoCont, rightCont].forEach(function(cont) {
+            if (!cont) return;
+            var s = cont.querySelectorAll('.cover-slide');
+            Array.from(s).forEach(function(sl) { sl.classList.remove('is-active'); });
+            if (s[idx]) s[idx].classList.add('is-active');
+        });
+        current = idx;
+        applyLogoColor(idx);
+        updateUI(idx);
     }
 
     applyLogoColor(0);
-    if (masterSlides.length < 2) return;
+    updateUI(0);
 
-    var current = 0;
-    setInterval(function() {
-        [photoCont, rightCont].forEach(function(cont) {
-            if (!cont) return;
-            var s = cont.querySelectorAll('.cover-slide');
-            if (s[current]) s[current].classList.remove('is-active');
-        });
-        current = (current + 1) % masterSlides.length;
-        [photoCont, rightCont].forEach(function(cont) {
-            if (!cont) return;
-            var s = cont.querySelectorAll('.cover-slide');
-            if (s[current]) s[current].classList.add('is-active');
-        });
-        applyLogoColor(current);
-    }, 5000);
+    if (total < 2) return;
+
+    var timer = setInterval(function() { goTo((current + 1) % total); }, 5000);
+
+    function resetTimer() {
+        clearInterval(timer);
+        timer = setInterval(function() { goTo((current + 1) % total); }, 5000);
+    }
+
+    if (btnPrev) btnPrev.addEventListener('click', function() { goTo((current - 1 + total) % total); resetTimer(); });
+    if (btnNext) btnNext.addEventListener('click', function() { goTo((current + 1) % total); resetTimer(); });
+
+    dots.forEach(function(d) {
+        d.addEventListener('click', function() { goTo(parseInt(this.dataset.slide, 10)); resetTimer(); });
+    });
 })();
 </script>
 
