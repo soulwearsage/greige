@@ -100,49 +100,6 @@ html body .g-nav button.g-nav-search-btn:hover { opacity: 0.65; }
 body .g-nav-social a { display: flex; color: #1a1a1a; fill: #1a1a1a; transition: opacity 0.2s; }
 body .g-nav-social a:hover { color: #1a1a1a; opacity: 0.45; }
 body .g-nav-social svg { width: 18px; height: 18px; fill: currentColor; }
-body .g-nav ul { list-style: none; padding: 0; margin: 0; }
-body .g-nav ul li { list-style: none; border: none; margin: 0; padding: 0; }
-body .g-nav ul li a {
-    display: block; color: #1a1a1a;
-    font-size: 15px; letter-spacing: -0.02em; padding: 10px 0;
-    font-family: var(--nav-font); font-weight: 600;
-    text-transform: uppercase; border: none; text-decoration: none;
-}
-body .g-nav ul li a:hover { opacity: 0.45; color: #1a1a1a; }
-.g-nav-board-link {
-    display: block; color: #1a1a1a;
-    font-size: 15px; letter-spacing: -0.02em; padding: 10px 0;
-    font-family: var(--nav-font); font-weight: 600;
-    text-transform: uppercase; text-decoration: none;
-}
-.g-nav-board-link:hover { opacity: 0.45; }
-@media (max-width: 767px) {
-    .g-nav-board-link { font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif; font-size: 18px; padding: 7px 0; }
-    body .g-nav ul li a { font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif; font-size: 18px; padding: 7px 0; }
-}
-.g-nav-search {
-    display: flex; align-items: flex-end; gap: 0;
-    border-bottom: 0.5px solid var(--dark); margin-top: 20px;
-}
-.g-nav .g-nav-search-input {
-    flex: 1; border: 0; outline: 0; background: transparent;
-    box-shadow: none; -webkit-appearance: none; appearance: none; border-radius: 0;
-    font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
-    font-size: 16px; letter-spacing: 0.04em;
-    color: var(--dark); padding: 9px 0; min-width: 0;
-}
-.g-nav .g-nav-search-input::-webkit-search-decoration,
-.g-nav .g-nav-search-input::-webkit-search-cancel-button { display: none; }
-.g-nav-moon { margin-top: 24px; padding-top: 20px; }
-.g-nav-moon-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.g-nav-moon-title { font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: var(--dark); }
-.g-nav-moon-ym { font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 400; letter-spacing: 0.12em; color: var(--gray); }
-.g-nav-moon-phases { display: flex; justify-content: space-between; }
-.g-nav-moon-phase { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
-.g-nav-moon-phase:first-child { align-items: flex-start; }
-.g-nav-moon-phase:last-child { align-items: flex-end; }
-.g-nav-moon-date { font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif; font-size: 10px; font-weight: 400; letter-spacing: 0.04em; color: var(--dark); }
-.g-nav-moon-label { font-family: Helvetica, 'Helvetica Neue', Arial, sans-serif; font-size: 8.5px; font-weight: 400; letter-spacing: 0.05em; color: var(--gray); text-align: center; line-height: 1.3; }
 
 /* ═══════════════════════════════════════
    MOBILE FIXED HEADER（モバイルのみ）
