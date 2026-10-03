@@ -117,6 +117,7 @@ if ($logo_id) {
 <link rel="stylesheet" href="<?php echo get_stylesheet_directory_uri(); ?>/css/greige-base.css?v=<?php echo filemtime(get_stylesheet_directory() . '/css/greige-base.css'); ?>">
 <link rel="stylesheet" href="<?php echo get_stylesheet_directory_uri(); ?>/css/greige-footer.css?v=<?php echo filemtime(get_stylesheet_directory() . '/css/greige-footer.css'); ?>">
 <link rel="stylesheet" href="<?php echo get_stylesheet_directory_uri(); ?>/css/greige-components.css?v=<?php echo filemtime(get_stylesheet_directory() . '/css/greige-components.css'); ?>">
+<link rel="stylesheet" href="<?php echo get_stylesheet_directory_uri(); ?>/css/greige-nav.css?v=<?php echo filemtime(get_stylesheet_directory() . '/css/greige-nav.css'); ?>">
 <link rel="stylesheet" href="<?php echo get_stylesheet_directory_uri(); ?>/css/greige-front.css?v=<?php echo filemtime(get_stylesheet_directory() . '/css/greige-front.css'); ?>">
 </head>
 <body <?php body_class('greige-front-gothic'); ?>>
