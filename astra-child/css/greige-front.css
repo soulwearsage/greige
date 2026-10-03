@@ -87,8 +87,6 @@ body .g-nav-close {
     body.greige-scrolled:not(.admin-bar) button.g-nav-close { top: 14px; }
     /* logged-in：scrolled後はハンバーガーが padding:14px に縮む → panel(top:46px)基準で top:14px */
     body.greige-scrolled.admin-bar button.g-nav-close { top: 14px; }
-    /* スクロール後：Xが top:14px に下がる → paddingもそれに合わせて縮める */
-    body.greige-scrolled .g-nav { padding-top: 44px; }
 }
 .g-nav-social {
     margin-top: 8px; padding-top: 24px;
