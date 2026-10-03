@@ -87,6 +87,8 @@ body .g-nav-close {
     body.greige-scrolled:not(.admin-bar) button.g-nav-close { top: 14px; }
     /* logged-in：scrolled後はハンバーガーが padding:14px に縮む → panel(top:46px)基準で top:14px */
     body.greige-scrolled.admin-bar button.g-nav-close { top: 14px; }
+    /* スクロール後：Xが top:14px に下がる → paddingもそれに合わせて縮める */
+    body.greige-scrolled .g-nav { padding-top: 44px; }
 }
 .g-nav-social {
     margin-top: 8px; padding-top: 24px;
@@ -204,7 +206,7 @@ button.gfx-srch-btn svg { width: 19px; height: 19px; }
 @media (max-height: 820px) {
     .gm-photo { padding-top: 7.8svh; }
 }
-body.pwa-standalone .gm-photo { padding-top: 6.3svh !important; }
+body.pwa-standalone .gm-photo { padding-top: 6.3svh; }
 .gm-photo-placeholder { width: 100%; height: 100%; background: var(--greige); }
 .gm-photo .cover-slide {
     position: absolute;
@@ -846,7 +848,7 @@ body .g-srch-close {
     box-shadow: none;
     -webkit-appearance: none; appearance: none;
     font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
-    font-size: 13px;
+    font-size: 16px;
     letter-spacing: 0.04em; color: var(--dark);
     padding: 9px 0; min-width: 0;
 }
