@@ -89,6 +89,8 @@ body .g-nav-close {
     body.greige-scrolled.admin-bar button.g-nav-close { top: 14px; }
     /* スクロール後：Xが top:14px に下がる → paddingもそれに合わせて縮める */
     body.greige-scrolled .g-nav { padding-top: 44px; }
+    /* 未ログイン・非スクロール：ログイン状態のボタン↔コンテンツ間隔（16px）に揃える */
+    body:not(.logged-in):not(.greige-scrolled) .g-nav { padding-top: 52px; }
 }
 .g-nav-social {
     margin-top: 8px; padding-top: 24px;
@@ -185,7 +187,7 @@ body button.gfx-srch-btn {
 }
 button.gfx-srch-btn:hover { opacity: 0.45; }
 button.gfx-srch-btn svg { width: 19px; height: 19px; }
-.gfx-header.scrolled .gfx-srch-btn { display: flex; padding: 14px 6px 14px 16px; }
+body.logged-in .gfx-header.scrolled .gfx-srch-btn { display: flex; padding: 14px 6px 14px 16px; }
 
 
 /* ═══════════════════════════════════════
