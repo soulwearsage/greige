@@ -265,6 +265,15 @@ function buildPayload(row, hmap, props, postType, isCreate) {
   var tagIds = resolveTagIds(cell(row, hmap, 'wp_tags'), props);
   if (tagIds.length > 0) payload.tags = tagIds;
 
+  // RankMath SEO フィールド
+  var metaTitle = cell(row, hmap, 'meta_title');
+  var metaDesc  = cell(row, hmap, 'meta_description');
+  if (metaTitle || metaDesc) {
+    payload.meta = {};
+    if (metaTitle) payload.meta.rank_math_title       = metaTitle;
+    if (metaDesc)  payload.meta.rank_math_description = metaDesc;
+  }
+
   return payload;
 }
 
