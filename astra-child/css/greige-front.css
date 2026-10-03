@@ -848,7 +848,7 @@ body .g-srch-close {
     box-shadow: none;
     -webkit-appearance: none; appearance: none;
     font-family: Helvetica, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
-    font-size: 16px;
+    font-size: 13px;
     letter-spacing: 0.04em; color: var(--dark);
     padding: 9px 0; min-width: 0;
 }
