@@ -731,15 +731,6 @@ h2.gv2-section-title {
         font-size: 12px; transition: opacity 0.2s, border-color 0.2s;
     }
     .gv2-counter-arrows button:hover { opacity: 0.45; border-color: var(--gray); }
-    .gv2-counter-dots { display: flex; align-items: center; gap: 5px; }
-    .gv2-dot {
-        width: 6px; height: 6px; border-radius: 50%;
-        border: none; padding: 0; cursor: pointer;
-        background: rgba(0,0,0,0.18);
-        transition: background 0.25s, transform 0.25s;
-    }
-    .gv2-dot.is-active { background: var(--dark); transform: scale(1.35); }
-    .gv2-dot:hover:not(.is-active) { background: rgba(0,0,0,0.4); }
 
     /* ── ファッションセクション PC */
     .gv2-section { padding-left: 40px; padding-right: var(--rail); padding-bottom: 48px; }
