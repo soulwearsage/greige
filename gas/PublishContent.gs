@@ -1,24 +1,10 @@
 /**
- * GREIGE MAGAZINE - CONTENT_MASTER → WordPress 下書き投稿
+ * GREIGE MAGAZINE - CONTENT_MASTER -> WordPress 下書き投稿
  *
- * CONTENT_MASTER の承認済み行を WordPress に下書きとして送る。
- * 公開（publish）はこのスクリプトでは行わない。WordPress 管理画面で人が行う。
- *
- * ■ Script Properties（ファイル → プロジェクトの設定 → スクリプト プロパティ）
- *   WP_USER        : WordPress ユーザー名
- *   WP_APP_PASS    : アプリケーションパスワード（スペースなし）
- *   SPREADSHEET_ID : 省略時 DEFAULT_SPREADSHEET_ID
- *   TAB_NAME       : 省略時 CONTENT_MASTER
- *
- * ■ 投稿される条件（すべて満たす行のみ）
- *   review_status = APPROVED
- *   title / body が空でない
- *   disclosure_type が設定済み
- *   disclosure_type が NONE 以外なら disclosure_included = TRUE
- *
- * ■ 冪等性
- *   wp_post_id が空 → 新規作成し、ID と URL を書き戻す
- *   wp_post_id あり → その記事を更新する（重複投稿しない）
+ * Script Properties: WP_USER / WP_APP_PASS / SPREADSHEET_ID / TAB_NAME
+ * 投稿条件: review_status=APPROVED かつ title/article_body/disclosure_type が有効
+ * 冪等: wp_post_id が空なら新規、あれば更新。二重投稿しない。
+ * 結果は実行ログに出る。
  */
 
 var WP_SITE = 'https://greige.online';
@@ -27,14 +13,12 @@ var DEFAULT_SPREADSHEET_ID = '1C4ljnBvsJmGzQe6aaWbdIUj4mXYjl7Mk3bPhdQfJQWw';
 var DEFAULT_TAB_NAME       = 'CONTENT_MASTER';
 var DEFAULT_POST_TYPE      = 'greige_product';
 
-// wp_post_type → REST エンドポイント
 // 組み込み投稿タイプ post の REST ベースは "posts"（複数形）。ここを間違えると 404 になる。
 var REST_BASE_BY_TYPE = {
   'greige_product': 'greige_product',
   'post':           'posts',
 };
 
-// wp_post_type → カテゴリータクソノミーのキー
 var TAXONOMY_BY_TYPE = {
   'greige_product': 'product_category',
   'post':           'categories',
@@ -52,21 +36,10 @@ var WP_CATEGORY_MAP = {
   'HAIR CARE':  20,
 };
 
-// 投稿処理に必要な列（SyncSchema.gs で作られる）
-var NEEDED_COLUMNS = [
-  'title', 'article_body', 'lead', 'slug', 'call_to_action',
-  'review_status', 'disclosure_type', 'disclosure_included',
-  'wp_post_id', 'wp_url', 'wp_post_type', 'wp_status',
-  'featured_image_id', 'wp_category', 'wp_tags',
-  'published_at', 'wp_last_synced_at', 'wp_error',
-];
+var NEEDED_COLUMNS = ('title,article_body,lead,slug,call_to_action,review_status,disclosure_type,disclosure_included,wp_post_id,wp_url,wp_post_type,wp_status,featured_image_id,wp_category,wp_tags,published_at,wp_last_synced_at,wp_error').split(',');
 
 // 本文中のPR表記らしき文字列（見つからなければ警告。ブロックはしない）
 var DISCLOSURE_MARKERS = ['PR', '広告', 'アフィリエイト', 'プロモーション', 'スポンサー'];
-
-// ─────────────────────────────────────────────────────────────
-// メニュー
-// ─────────────────────────────────────────────────────────────
 
 function onOpen() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu('WordPress 投稿', [
@@ -74,10 +47,6 @@ function onOpen() {
     { name: '▶ 下書き投稿（APPROVED行）',   functionName: 'publishContent' },
   ]);
 }
-
-// ─────────────────────────────────────────────────────────────
-// 設定・シートアクセス
-// ─────────────────────────────────────────────────────────────
 
 function getProps() {
   var p = PropertiesService.getScriptProperties();
@@ -114,10 +83,6 @@ function isTruthy(v) {
   var s = String(v == null ? '' : v).trim().toUpperCase();
   return s === 'TRUE' || s === '1' || s === 'YES' || s === 'Y';
 }
-
-// ─────────────────────────────────────────────────────────────
-// 行の検証
-// ─────────────────────────────────────────────────────────────
 
 /** @return {{ok: boolean, reason: string, warn: string}} */
 function validateRow(row, hmap) {
@@ -163,10 +128,6 @@ function hasDisclosureMarker(body) {
   }
   return false;
 }
-
-// ─────────────────────────────────────────────────────────────
-// WordPress REST API
-// ─────────────────────────────────────────────────────────────
 
 function wpFetch(path, method, payload, props) {
   var options = {
@@ -231,10 +192,6 @@ function resolveTagIds(tagStr, props) {
   return ids;
 }
 
-// ─────────────────────────────────────────────────────────────
-// ペイロード生成
-// ─────────────────────────────────────────────────────────────
-
 function buildPayload(row, hmap, props, postType, isCreate) {
   var body = cell(row, hmap, 'article_body');
   var cta  = cell(row, hmap, 'call_to_action');
@@ -265,7 +222,6 @@ function buildPayload(row, hmap, props, postType, isCreate) {
   var tagIds = resolveTagIds(cell(row, hmap, 'wp_tags'), props);
   if (tagIds.length > 0) payload.tags = tagIds;
 
-  // RankMath SEO フィールド
   var metaTitle = cell(row, hmap, 'meta_title');
   var metaDesc  = cell(row, hmap, 'meta_description');
   if (metaTitle || metaDesc) {
@@ -276,10 +232,6 @@ function buildPayload(row, hmap, props, postType, isCreate) {
 
   return payload;
 }
-
-// ─────────────────────────────────────────────────────────────
-// メイン処理
-// ─────────────────────────────────────────────────────────────
 
 function publishContent() { runPublish(false); }
 function dryRunPublish()  { runPublish(true);  }
@@ -357,7 +309,6 @@ function runPublish(isDryRun) {
         sheet.getRange(sheetRow, hmap['wp_last_synced_at'] + 1).setValue(now);
         sheet.getRange(sheetRow, hmap['wp_error']           + 1).setValue('');
 
-        // 公開済みになった場合のみ published_at を記録（未記入のときだけ）
         if (result.body.status === 'publish' && !cell(row, hmap, 'published_at')) {
           sheet.getRange(sheetRow, hmap['published_at'] + 1).setValue(now);
         }
@@ -400,10 +351,6 @@ function runPublish(isDryRun) {
 }
 
 function alertText(text) {
+  // getUi() はエディタ実行時に固まるため呼ばない。結果は実行ログで見る。
   Logger.log(text);
-  try {
-    SpreadsheetApp.getUi().alert(text);
-  } catch (e) {
-    // エディタから直接実行した場合は UI が無いのでログのみ
-  }
 }

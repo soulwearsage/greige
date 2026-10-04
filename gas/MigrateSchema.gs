@@ -113,8 +113,7 @@ function migrateContentMaster() {
 
   var text = out.join('\n');
   Logger.log(text);
-  // エディタから直接実行すると getUi() が応答しないことがあるため保護する
-  try { SpreadsheetApp.getUi().alert(text); } catch (e) {}
+  // getUi() はエディタ実行時に例外を投げず固まるため呼ばない。結果は実行ログで見る。
 }
 
 function mcHeader_(sheet) {
