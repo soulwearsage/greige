@@ -56,12 +56,15 @@ function onOpenNewsCollector() {
 function collectNewsDryRun() { ncCollect(true); }
 function collectNews()       { ncCollect(false); }
 
-/** 30件収集＋画像補完 を NC_COLLECT_LOOPS 回繰り返す（1ボタンで全部完了） */
+/** キーワード全件をカバーするまでバッチを進めながら収集する（1ボタンで全部完了） */
 function collectNewsLooped() {
+  // 前回の続きから始めるため、オフセットをリセットしてから全キーワードをカバー
+  PropertiesService.getScriptProperties().deleteProperty('NC_KW_OFFSET');
   for (var i = 0; i < NC_COLLECT_LOOPS; i++) {
     Logger.log('=== ループ ' + (i + 1) + ' / ' + NC_COLLECT_LOOPS + ' ===');
     ncCollect(false);
   }
+  PropertiesService.getScriptProperties().deleteProperty('NC_KW_OFFSET');
   Logger.log('全ループ完了');
 }
 
@@ -80,11 +83,15 @@ function ncCollect(dryRun) {
   var header    = pool.header;
 
   // キーワードごとに PR TIMES と AT PRESS を直接検索する
+  // オフセットを使って毎回異なるキーワードバッチを処理する
+  var offset = parseInt(props.getProperty('NC_KW_OFFSET') || '0', 10);
+  if (isNaN(offset) || offset >= keywords.length) offset = 0;
+
   var queue = [];
   var seenUrls = {};
-  var kwLimit = Math.min(keywords.length, NC_MAX_KEYWORDS);
+  var processed = 0;
 
-  for (var k = 0; k < kwLimit; k++) {
+  for (var k = offset; processed < NC_MAX_KEYWORDS && k < keywords.length; k++, processed++) {
     if (new Date().getTime() - t0 > NC_TIME_BUDGET_MS * 0.4) break;
     var kwObj = keywords[k];
     var kw    = kwObj.keyword;
@@ -114,7 +121,12 @@ function ncCollect(dryRun) {
     Logger.log('キーワード「' + kw + '」: PR TIMES ' + prResults.length + '件 / AT PRESS ' + apResults.length + '件');
   }
 
-  Logger.log('検索完了: 候補 ' + queue.length + '件 / キーワード ' + kwLimit + '個');
+  // 次回は続きのキーワードから始める（全件処理したら先頭に戻る）
+  var nextOffset = offset + processed;
+  if (nextOffset >= keywords.length) nextOffset = 0;
+  props.setProperty('NC_KW_OFFSET', String(nextOffset));
+
+  Logger.log('検索完了: 候補 ' + queue.length + '件 / キーワード ' + processed + '個 (offset ' + offset + '→' + nextOffset + ')');
 
   var saved = 0, noImage = 0, dup = 0, timeUp = false;
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
