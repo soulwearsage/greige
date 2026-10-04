@@ -28,7 +28,7 @@ var NC_COLLECT_LOOPS = 5;
 // 画像が取れなかった記事は保存しない（ボードに NO IMAGE を出さないため）
 var NC_REQUIRE_IMAGE = true;
 // キーワード未一致の記事も埋め草として収集するか
-var NC_INCLUDE_UNMATCHED = true;
+var NC_INCLUDE_UNMATCHED = false;
 // 1実行の時間上限（GASの6分制限に対する安全マージン）
 var NC_TIME_BUDGET_MS = 290 * 1000;
 
@@ -271,7 +271,7 @@ var NC_PR_FEED_CACHE = null;
 function ncLoadPrTimesFeed() {
   if (NC_PR_FEED_CACHE !== null) return NC_PR_FEED_CACHE;
 
-  var feeds = ['https://prtimes.jp/index.rdf', 'https://prtimes.jp/rss/index.rdf'];
+  var feeds = ['https://prtimes.jp/topics/11.rdf', 'https://prtimes.jp/topics/46.rdf', 'https://prtimes.jp/index.rdf', 'https://prtimes.jp/rss/index.rdf'];
   for (var f = 0; f < feeds.length; f++) {
     var xml = ncFetch(feeds[f]);
     if (!xml) { Logger.log('公式RSS NG(取得失敗): ' + feeds[f]); continue; }
