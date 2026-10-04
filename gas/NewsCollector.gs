@@ -389,7 +389,7 @@ function ncGenId() {
 // ─────────────────────────────────────────────────────────────
 
 function ncDebugPrTimes() {
-  var url = 'https://prtimes.jp/main/action.php?run=html&page=releaseList&searchWord=' +
+  var url = 'https://prtimes.jp/main/html/searchrtop/id/0/keyword/' +
             encodeURIComponent('Adidas');
   Logger.log('=== URL ===');
   Logger.log(url);
