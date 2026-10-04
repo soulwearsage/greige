@@ -914,6 +914,8 @@
 </style>
 </head>
 <body class="greige-board">
+<?php get_template_part('template-parts/nav-overlay'); ?>
+<?php get_template_part('template-parts/header-single'); ?>
 
 <div class="pb-wrap">
 
@@ -2560,9 +2562,6 @@ if (file_exists($cfg)) echo file_get_contents($cfg);
 })();
 </script>
 
-</script>
-
 <?php get_template_part('template-parts/footer-site'); ?>
-<?php wp_footer(); ?>
 </body>
 </html>

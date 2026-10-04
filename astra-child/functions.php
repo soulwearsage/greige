@@ -130,6 +130,7 @@ add_action('admin_menu', function() {
         if (!current_user_can('edit_posts')) {
             wp_die('アクセス権限がありません', 'Access Denied', ['response' => 403]);
         }
+        show_admin_bar(false);
         $dir = get_stylesheet_directory() . '/tools/product-board/';
         if (!file_exists($dir . 'search_edit.php')) {
             wp_die('Product Board: ファイルが見つかりません。<br>Path: ' . esc_html($dir));
