@@ -391,19 +391,40 @@ function ncGenId() {
 function ncDebugPrTimes() {
   var url = 'https://prtimes.jp/main/action.php?run=html&page=releaseList&searchWord=' +
             encodeURIComponent('Adidas');
-  var html = ncFetch(url);
-  if (!html) { Logger.log('取得失敗'); return; }
   Logger.log('=== URL ===');
   Logger.log(url);
-  Logger.log('=== HTML 先頭3000文字 ===');
-  Logger.log(html.slice(0, 3000));
-  Logger.log('=== <a href に /main/html/rd が含まれる行 ===');
-  var lines = html.split('\n');
-  lines.forEach(function(line) {
-    if (line.indexOf('/main/html/rd') !== -1 || line.indexOf('release') !== -1) {
-      Logger.log(line.trim().slice(0, 200));
-    }
-  });
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
+    });
+    Logger.log('HTTP STATUS: ' + res.getResponseCode());
+    var html = res.getContentText();
+    Logger.log('HTML 先頭3000文字:');
+    Logger.log(html.slice(0, 3000));
+  } catch(e) {
+    Logger.log('ERROR: ' + e.message);
+  }
+}
+
+function ncDebugPrTimes2() {
+  var url = 'https://prtimes.jp/topics/fashion';
+  Logger.log('=== URL ===');
+  Logger.log(url);
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
+    });
+    Logger.log('HTTP STATUS: ' + res.getResponseCode());
+    var html = res.getContentText();
+    Logger.log('HTML 先頭3000文字:');
+    Logger.log(html.slice(0, 3000));
+  } catch(e) {
+    Logger.log('ERROR: ' + e.message);
+  }
 }
 
 function ncDebugAtPress() {
