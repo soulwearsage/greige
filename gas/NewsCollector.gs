@@ -25,6 +25,12 @@ var NC_MAX_KEYWORDS = 20;
 var NC_MAX_TOTAL = 100;
 // collectNewsLooped() が繰り返す回数
 var NC_COLLECT_LOOPS = 5;
+// 画像が取れなかった記事は保存しない（ボードに NO IMAGE を出さないため）
+var NC_REQUIRE_IMAGE = true;
+// キーワード未一致の記事も埋め草として収集するか
+var NC_INCLUDE_UNMATCHED = true;
+// 1実行の時間上限（GASの6分制限に対する安全マージン）
+var NC_TIME_BUDGET_MS = 290 * 1000;
 
 // ボットUAだと弾くサイトがあるのでブラウザのUAを使う
 var NC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
@@ -38,7 +44,7 @@ function onOpenNewsCollector() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu('ニュース収集', [
     { name: '▶ ニュースを収集（画像付き）',     functionName: 'collectNews' },
     { name: '▶ 画像URLだけ補完（既存記事）',   functionName: 'ncFillMissingImages' },
-    { name: '▶ Google画像を消去（お掃除）',    functionName: 'ncClearGoogleImages' },
+    { name: '▶ Google News行を削除（お掃除）', functionName: 'ncClearGoogleNewsRows' },
     { name: '▶ 接続診断',                      functionName: 'ncDiagnose' },
   ]);
 }
@@ -60,88 +66,102 @@ function collectNewsLooped() {
 }
 
 function ncCollect(dryRun) {
+  var t0 = new Date().getTime();
+
   var props   = PropertiesService.getScriptProperties();
   var kwId    = props.getProperty('NEWS_KEYWORDS_ID') || NC_KEYWORDS_ID;
   var poolId  = props.getProperty('NEWS_POOL_ID')     || NC_POOL_ID;
   var poolTab = props.getProperty('NEWS_POOL_TAB')    || NC_POOL_TAB;
 
-  var keywords = ncLoadKeywords(kwId);
-  if (!keywords.length) {
-    Logger.log('有効なキーワードがありません');
+  var keywords  = ncLoadKeywords(kwId);
+  var pool      = ncLoadPool(poolId, poolTab);
+  var existUrls = pool.existUrls;
+  var sheet     = pool.sheet;
+  var header    = pool.header;
+
+  // 実記事URLが取れる唯一の経路。Google News は CBMi URL が復号できず
+  // og:image を取得できないので一切使わない。
+  NC_PR_FEED_CACHE = null;
+  var feed = ncLoadPrTimesFeed();
+  if (!feed.length) {
+    var ng = '公式RSSが取得できませんでした。収集を中止します。';
+    Logger.log(ng);
+    try { SpreadsheetApp.getUi().alert(ng); } catch (e) {}
     return;
   }
 
-  var pool       = ncLoadPool(poolId, poolTab);
-  var existUrls  = pool.existUrls;
-  var sheet      = pool.sheet;
-  var header     = pool.header;
-
-  var saved  = 0;
-  var tried  = 0;
-  var errors = [];
-
-  for (var i = 0; i < keywords.length && tried < NC_MAX_KEYWORDS; i++) {
-    var kw = keywords[i];
-    tried++;
-
-    var articles = [];
-    try {
-      var pr = ncSearchPrTimes(kw.keyword);
-      articles = articles.concat(pr);
-    } catch (e) {
-      errors.push('PRTimes[' + kw.keyword + ']: ' + e.message);
+  // キーワードに一致した記事を先に処理する
+  var matched = [], unmatched = [];
+  for (var i = 0; i < feed.length; i++) {
+    var a   = feed[i];
+    var hay = (a.title + ' ' + a.summary).toLowerCase();
+    var hit = null;
+    for (var k = 0; k < keywords.length; k++) {
+      var kwText = String(keywords[k].keyword || '').toLowerCase();
+      if (kwText && hay.indexOf(kwText) !== -1) { hit = keywords[k]; break; }
     }
-    try {
-      var at = ncSearchAtPress(kw.keyword);
-      articles = articles.concat(at);
-    } catch (e) {
-      errors.push('AtPress[' + kw.keyword + ']: ' + e.message);
-    }
+    a._kw = hit;
+    if (hit) matched.push(a); else unmatched.push(a);
+  }
+  var queue = NC_INCLUDE_UNMATCHED ? matched.concat(unmatched) : matched;
+  Logger.log('RSS ' + feed.length + '件 / キーワード一致 ' + matched.length +
+             '件 / 処理対象 ' + queue.length + '件');
 
-    for (var j = 0; j < articles.length; j++) {
-      if (saved >= NC_MAX_TOTAL) break;
+  var saved = 0, noImage = 0, dup = 0, timeUp = false;
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var now   = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
 
-      var art = articles[j];
-      if (!art.source_url || existUrls[art.source_url]) continue;
+  for (var q = 0; q < queue.length && saved < NC_MAX_TOTAL; q++) {
+    if (new Date().getTime() - t0 > NC_TIME_BUDGET_MS) { timeUp = true; break; }
 
-      art.category        = kw.category;
-      art.matched_keyword = kw.keyword;
-      art.keywords        = kw.keyword;
-      art.collected_date  = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
-      art.status          = 'NEW';
-      art.created_at      = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
-      art.updated_at      = art.created_at;
-      art.news_id         = ncGenId();
+    var art = queue[q];
+    if (!art.source_url || existUrls[art.source_url]) { dup++; continue; }
 
-      existUrls[art.source_url] = true;
-
-      if (!dryRun) {
-        if (!art.image_url) {
-          var r = ncResolveArticle(art.source_url);
-          art.source_url = r.url;      // Google News URL → 実記事URL に差し替え
-          art.image_url  = r.image;
-        }
-        ncAppendRow(sheet, header, art);
+    var img = '';
+    if (!dryRun) {
+      img = ncResolveArticle(art.source_url).image;
+      if (!img && NC_REQUIRE_IMAGE) {
+        noImage++;
+        Logger.log('× 画像なしで除外: ' + art.title.slice(0, 40));
+        continue;
       }
-      saved++;
-      Logger.log((dryRun ? '[DRY] ' : '') + (art.image_url ? '✓' : '×') + ' ' + art.title.slice(0, 40));
     }
-    if (saved >= NC_MAX_TOTAL) break;
 
-    Utilities.sleep(500);
+    var kw  = art._kw;
+    var row = {
+      news_id:         ncGenId(),
+      title:           art.title,
+      summary:         art.summary,
+      source_url:      art.source_url,
+      source_name:     art.source_name,
+      news_date:       art.news_date,
+      image_url:       img,
+      category:        kw ? kw.category : 'TREND',
+      matched_keyword: kw ? kw.keyword  : '',
+      keywords:        kw ? kw.keyword  : '',
+      collected_date:  today,
+      status:          'NEW',
+      created_at:      now,
+      updated_at:      now,
+    };
+
+    existUrls[art.source_url] = true;
+    if (!dryRun) ncAppendRow(sheet, header, row);
+    saved++;
+    Logger.log('\u2713 ' + art.title.slice(0, 40));
   }
 
   var msg = (dryRun ? '【ドライラン】' : '【収集完了】') + '\n' +
-    'キーワード処理数: ' + tried + '\n' +
-    '新規記事: ' + saved + '\n' +
-    (errors.length ? 'エラー(' + errors.length + '):\n' + errors.slice(0, 5).join('\n') : '');
+    '新規保存: ' + saved + '件（すべて画像付き）\n' +
+    '画像なしで除外: ' + noImage + '件\n' +
+    '重複スキップ: ' + dup + '件' +
+    (timeUp ? '\n※時間切れで途中終了。もう一度実行すると続きを取得します。' : '');
   Logger.log(msg);
-  try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
-
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) {}
 }
 
 // ─────────────────────────────────────────────────────────────
-// キーワード読み込み
+// NEWS_KEYWORDS 読み込み
 // ─────────────────────────────────────────────────────────────
 
 function ncLoadKeywords(ssId) {
@@ -662,11 +682,23 @@ function ncIsGenericImage(url) {
 // 後方互換
 function ncIsGoogleImage(url) { return ncIsGenericImage(url); }
 
+/** HTMLエンティティを戻す。&amp; のまま保存すると画像が表示されない */
+function ncDecodeEntities(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/&amp;/gi,  '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi,   '<')
+    .replace(/&gt;/gi,   '>');
+}
+
 function ncPickOgImage(html) {
   if (!html) return '';
   var m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
   if (!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-  var img = m ? m[1] : '';
+  var img = ncDecodeEntities(m ? m[1] : '');
   if (ncIsGenericImage(img)) return '';
   return img;
 }
@@ -727,31 +759,37 @@ function ncFetchOgImage(url) {
   return ncResolveArticle(url).image;
 }
 
-/** Google News CBMi URL の行を全削除する（実記事URLに差し替えられないため） */
+/**
+ * Google News の CBMi URL が入った行を全削除する。
+ * CBMi URL は暗号化されていて実記事URLに復号できないため、
+ * これらの行からは og:image を永久に取得できない。
+ * 1行ずつ deleteRow するとタイムアウトするので残す行だけ一括で書き戻す。
+ */
 function ncClearGoogleNewsRows() {
-  var props   = PropertiesService.getScriptProperties();
-  var pool    = ncLoadPool(props.getProperty('NEWS_POOL_ID')  || NC_POOL_ID,
-                           props.getProperty('NEWS_POOL_TAB') || NC_POOL_TAB);
-  var sheet   = pool.sheet;
-  var urlIdx  = pool.header.indexOf('source_url');
+  var props  = PropertiesService.getScriptProperties();
+  var pool   = ncLoadPool(props.getProperty('NEWS_POOL_ID')  || NC_POOL_ID,
+                          props.getProperty('NEWS_POOL_TAB') || NC_POOL_TAB);
+  var sheet  = pool.sheet;
+  var header = pool.header;
+  var urlIdx = header.indexOf('source_url');
   if (urlIdx < 0) { Logger.log('source_url 列がありません'); return; }
 
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return;
+  if (lastRow < 2) { Logger.log('データ行がありません'); return; }
 
-  var urls    = sheet.getRange(2, urlIdx + 1, lastRow - 1, 1).getValues();
-  var deleted = 0;
-  // 下から削除しないと行番号がずれる
-  for (var i = urls.length - 1; i >= 0; i--) {
-    if (String(urls[i][0]).indexOf('news.google.com') !== -1) {
-      sheet.deleteRow(i + 2);
-      deleted++;
-    }
+  var data = sheet.getRange(2, 1, lastRow - 1, header.length).getValues();
+  var keep = [];
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][urlIdx]).indexOf('news.google.com') === -1) keep.push(data[i]);
   }
+  var deleted = data.length - keep.length;
 
-  var msg = 'Google News行を削除: ' + deleted + '件';
+  sheet.getRange(2, 1, data.length, header.length).clearContent();
+  if (keep.length) sheet.getRange(2, 1, keep.length, header.length).setValues(keep);
+
+  var msg = 'Google News行を削除: ' + deleted + '件 / 残り: ' + keep.length + '件';
   Logger.log(msg);
-  try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) {}
 }
 
 // ─────────────────────────────────────────────────────────────
