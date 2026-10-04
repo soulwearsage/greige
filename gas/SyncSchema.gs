@@ -51,7 +51,7 @@ var SCHEMA = [
   'subtitle',
   'lead',
   'editorial_note',
-  'body',
+  'article_body',
   'generated_key_points',
   'call_to_action',
 
@@ -110,6 +110,25 @@ var SCHEMA = [
   'claude_api_enabled',
   'claude_api_model',
   'claude_api_status',
+
+  // ── CONTENT SYSTEM 工程 ──
+  'writing_rules_version',
+  'gemini_research_result',
+  'gemini_research_at',
+  'chatgpt_planning',
+  'chatgpt_article',
+  'chatgpt_article_at',
+  'claude_article',
+  'claude_article_at',
+
+  // ── SNS出力（媒体別） ──
+  'sns_post_type',
+  'video_template_id',
+  'remotion_video_url',
+  'tiktok_caption',
+  'youtube_title',
+  'youtube_description',
+  'threads_text',
 ];
 
 // ─────────────────────────────────────────────────────────────

@@ -54,7 +54,7 @@ var WP_CATEGORY_MAP = {
 
 // 投稿処理に必要な列（SyncSchema.gs で作られる）
 var NEEDED_COLUMNS = [
-  'title', 'body', 'lead', 'slug', 'call_to_action',
+  'title', 'article_body', 'lead', 'slug', 'call_to_action',
   'review_status', 'disclosure_type', 'disclosure_included',
   'wp_post_id', 'wp_url', 'wp_post_type', 'wp_status',
   'featured_image_id', 'wp_category', 'wp_tags',
@@ -129,7 +129,7 @@ function validateRow(row, hmap) {
     return { ok: false, reason: 'title が空', warn: '' };
   }
 
-  var body = cell(row, hmap, 'body');
+  var body = cell(row, hmap, 'article_body');
   if (!body) {
     return { ok: false, reason: 'body が空', warn: '' };
   }
@@ -236,7 +236,7 @@ function resolveTagIds(tagStr, props) {
 // ─────────────────────────────────────────────────────────────
 
 function buildPayload(row, hmap, props, postType, isCreate) {
-  var body = cell(row, hmap, 'body');
+  var body = cell(row, hmap, 'article_body');
   var cta  = cell(row, hmap, 'call_to_action');
   if (cta) body += '\n\n' + cta;
 
