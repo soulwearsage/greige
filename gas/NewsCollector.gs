@@ -324,8 +324,8 @@ function ncLoadAtPressFeed() {
   var articles = [];
   var seen     = {};
 
-  // /releases/数字 のリンクを全て抽出
-  var re = /href="(\/releases\/(\d+)[^"]*)"/gi;
+  // /news/数字 のリンクを全て抽出（AT PRESSの記事URL形式）
+  var re = /href="(\/news\/(\d+)[^"]*)"/gi;
   var m;
   while ((m = re.exec(html)) !== null) {
     var path   = m[1].split('?')[0].split('#')[0];
@@ -341,7 +341,7 @@ function ncLoadAtPressFeed() {
     var titleM = block.match(/class="[^"]*(?:title|heading|name)[^"]*"[^>]*>([\s\S]*?)<\/(?:h[1-6]|p|span|a|div)/i);
     var title  = titleM ? ncStripTags(titleM[1]).trim() : '';
     if (!title) {
-      var aM = block.match(/<a[^>]+href="[^"]*releases\/\d+[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
+      var aM = block.match(/<a[^>]+href="[^"]*news\/\d+[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
       title  = aM ? ncStripTags(aM[1]).trim() : '';
     }
     if (!title || title.length < 3) continue;
