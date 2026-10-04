@@ -197,77 +197,98 @@ function ncAppendRow(sheet, header, art) {
 // ─────────────────────────────────────────────────────────────
 
 function ncSearchPrTimes(keyword) {
-  var url = 'https://prtimes.jp/main/action.php?run=html&page=releaseList&searchWord=' +
+  var url = 'https://prtimes.jp/main/html/searchtop/id/0/keyword/' +
             encodeURIComponent(keyword);
   var html = ncFetch(url);
   if (!html) return [];
 
   var articles = [];
-  // 記事リストのパターン: <article> または .release-list-item
-  var blockRe = /<article[^>]*class="[^"]*list-item[^"]*"[^>]*>([\s\S]*?)<\/article>/gi;
-  var m;
+  var seen     = {};
 
+  // パターン1: <article> ブロックを探す
+  var blockRe = /<article[^>]*>([\s\S]*?)<\/article>/gi;
+  var m;
   while ((m = blockRe.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
     var block = m[1];
-
-    // タイトルと記事URL
-    var linkRe = /<a[^>]+href="(\/main\/html\/rd\/p\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i;
-    var lm = block.match(linkRe);
-    if (!lm) continue;
-
-    var relUrl = lm[1];
-    var title  = ncStripTags(lm[2]).trim();
-    if (!title || !relUrl) continue;
-
-    var sourceUrl = 'https://prtimes.jp' + relUrl;
-
-    // 日付
-    var datm  = block.match(/<time[^>]+datetime="([^"]+)"/i);
-    var newsDate = datm ? datm[1].slice(0, 10) : '';
-
-    // 配信元（会社名）
-    var compRe = /class="[^"]*company[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i;
-    var cm = block.match(compRe);
-    var sourceName = cm ? ncStripTags(cm[1]).trim() : 'PR TIMES';
-
-    // サマリー
-    var sumRe = /class="[^"]*summary[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i;
-    var sm = block.match(sumRe);
-    var summary = sm ? ncStripTags(sm[1]).trim() : '';
-
-    // OGP画像
-    var imgRe = /<img[^>]+src="([^"]+)"[^>]*>/i;
-    var im = block.match(imgRe);
-    var imageUrl = im ? im[1] : '';
-
-    articles.push({
-      title:       title,
-      source_url:  sourceUrl,
-      source_name: sourceName,
-      news_date:   newsDate,
-      summary:     summary,
-      image_url:   imageUrl,
-    });
+    var item  = ncExtractPrTimesItem(block, seen);
+    if (item) { articles.push(item); seen[item.source_url] = true; }
   }
 
-  // articleタグで取れなかった場合のフォールバック
+  // パターン2: <li> ブロックを探す（articleが取れなかった場合）
   if (articles.length === 0) {
-    articles = ncParsePrTimesSimple(html, keyword);
+    var liRe = /<li[^>]*class="[^"]*(?:list|release|item)[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
+    while ((m = liRe.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
+      var block = m[1];
+      var item  = ncExtractPrTimesItem(block, seen);
+      if (item) { articles.push(item); seen[item.source_url] = true; }
+    }
+  }
+
+  // フォールバック: /rd/p/ リンクを直接抽出
+  if (articles.length === 0) {
+    articles = ncParsePrTimesSimple(html, seen);
   }
 
   return articles;
 }
 
-function ncParsePrTimesSimple(html, keyword) {
+function ncExtractPrTimesItem(block, seen) {
+  // 記事URL: /main/html/rd/p/数字.数字.html 形式
+  var linkRe = /<a[^>]+href="(\/main\/html\/rd\/p\/[^"]+\.html)"[^>]*>([\s\S]*?)<\/a>/i;
+  var lm = block.match(linkRe);
+  if (!lm) return null;
+
+  var relUrl = lm[1];
+  if (seen && seen['https://prtimes.jp' + relUrl]) return null;
+
+  // タイトル: リンクテキスト or <h2>/<h3>/<strong>
+  var title = ncStripTags(lm[2]).trim();
+  if (title.length < 5) {
+    var hm = block.match(/<(?:h[1-6]|strong)[^>]*>([\s\S]*?)<\/(?:h[1-6]|strong)>/i);
+    if (hm) title = ncStripTags(hm[1]).trim();
+  }
+  if (!title || title.length < 5) return null;
+
+  var datm     = block.match(/<time[^>]+datetime="([^"]+)"/i);
+  var newsDate = datm ? datm[1].slice(0, 10) : '';
+
+  var compRe    = /class="[^"]*(?:company|corp|name)[^"]*"[^>]*>([\s\S]*?)<\/(?:span|div|p|a)/i;
+  var cm        = block.match(compRe);
+  var sourceName= cm ? ncStripTags(cm[1]).trim() : 'PR TIMES';
+  if (!sourceName || sourceName.length < 2) sourceName = 'PR TIMES';
+
+  var sumRe  = /class="[^"]*(?:summary|snippet|lead|body)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div|span)/i;
+  var sm     = block.match(sumRe);
+  var summary= sm ? ncStripTags(sm[1]).trim() : '';
+
+  var imgRe  = /<img[^>]+src="(https?:[^"]+(?:\.jpe?g|\.png|\.webp)[^"]*)"[^>]*/i;
+  var im     = block.match(imgRe);
+  var imgUrl = im ? im[1] : '';
+
+  return {
+    title:       title,
+    source_url:  'https://prtimes.jp' + relUrl,
+    source_name: sourceName,
+    news_date:   newsDate,
+    summary:     summary,
+    image_url:   imgUrl,
+  };
+}
+
+function ncParsePrTimesSimple(html, seen) {
   var articles = [];
-  var re = /<a[^>]+href="(\/main\/html\/rd\/p\/(\d+)\.html)"[^>]*>([^<]{5,200})<\/a>/gi;
+  // /rd/p/数字.数字.html 形式のURLを直接探す
+  var re = /<a[^>]+href="(\/main\/html\/rd\/p\/[\d.]+\.html)"[^>]*>([\s\S]*?)<\/a>/gi;
   var m;
   while ((m = re.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
-    var title = m[3].trim();
+    var relUrl = m[1];
+    var fullUrl = 'https://prtimes.jp' + relUrl;
+    if (seen && seen[fullUrl]) continue;
+    var title = ncStripTags(m[2]).trim();
     if (title.length < 5) continue;
     articles.push({
       title:       title,
-      source_url:  'https://prtimes.jp' + m[1],
+      source_url:  fullUrl,
       source_name: 'PR TIMES',
       news_date:   '',
       summary:     '',
@@ -288,66 +309,89 @@ function ncSearchAtPress(keyword) {
   if (!html) return [];
 
   var articles = [];
-  // atpressの記事ブロック
-  var blockRe = /<li[^>]*class="[^"]*p-result__item[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
+  var seen     = {};
+
+  // パターン1: li.p-result__item
+  var blockRe = /<li[^>]*class="[^"]*(?:result|item|release)[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
   var m;
-
   while ((m = blockRe.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
-    var block = m[1];
-
-    var linkRe = /<a[^>]+href="(\/releases\/\d+)"[^>]*>/i;
-    var lm = block.match(linkRe);
-    if (!lm) continue;
-
-    var sourceUrl = 'https://www.atpress.ne.jp' + lm[1];
-
-    var titleRe = /class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i;
-    var tm = block.match(titleRe);
-    var title = tm ? ncStripTags(tm[1]).trim() : '';
-    if (!title) continue;
-
-    var datm = block.match(/<time[^>]+datetime="([^"]+)"/i);
-    var newsDate = datm ? datm[1].slice(0, 10) : '';
-
-    var compRe = /class="[^"]*company[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i;
-    var cm = block.match(compRe);
-    var sourceName = cm ? ncStripTags(cm[1]).trim() : 'AT PRESS';
-
-    var sumRe = /class="[^"]*summary[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i;
-    var sm = block.match(sumRe);
-    var summary = sm ? ncStripTags(sm[1]).trim() : '';
-
-    var imgRe = /<img[^>]+src="([^"]+)"[^>]*>/i;
-    var im = block.match(imgRe);
-    var imageUrl = im ? im[1] : '';
-
-    articles.push({
-      title:       title,
-      source_url:  sourceUrl,
-      source_name: sourceName,
-      news_date:   newsDate,
-      summary:     summary,
-      image_url:   imageUrl,
-    });
+    var item = ncExtractAtPressItem(m[1], seen);
+    if (item) { articles.push(item); seen[item.source_url] = true; }
   }
 
+  // パターン2: article ブロック
   if (articles.length === 0) {
-    articles = ncParseAtPressSimple(html);
+    var artRe = /<article[^>]*>([\s\S]*?)<\/article>/gi;
+    while ((m = artRe.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
+      var item = ncExtractAtPressItem(m[1], seen);
+      if (item) { articles.push(item); seen[item.source_url] = true; }
+    }
+  }
+
+  // フォールバック: /releases/数字 リンクを直接抽出
+  if (articles.length === 0) {
+    articles = ncParseAtPressSimple(html, seen);
   }
 
   return articles;
 }
 
-function ncParseAtPressSimple(html) {
+function ncExtractAtPressItem(block, seen) {
+  var linkRe = /<a[^>]+href="(\/releases\/\d+)"[^>]*>([\s\S]*?)<\/a>/i;
+  var lm = block.match(linkRe);
+  if (!lm) return null;
+
+  var relUrl  = lm[1];
+  var fullUrl = 'https://www.atpress.ne.jp' + relUrl;
+  if (seen && seen[fullUrl]) return null;
+
+  // タイトル: リンクテキスト or class="*title*"
+  var title = ncStripTags(lm[2]).trim();
+  if (title.length < 5) {
+    var tm = block.match(/class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/(?:h[1-6]|p|span|div)/i);
+    if (tm) title = ncStripTags(tm[1]).trim();
+  }
+  if (!title || title.length < 5) return null;
+
+  var datm     = block.match(/<time[^>]+datetime="([^"]+)"/i);
+  var newsDate = datm ? datm[1].slice(0, 10) : '';
+
+  var compRe    = /class="[^"]*(?:company|corp|name)[^"]*"[^>]*>([\s\S]*?)<\/(?:span|div|p|a)/i;
+  var cm        = block.match(compRe);
+  var sourceName= cm ? ncStripTags(cm[1]).trim() : 'AT PRESS';
+  if (!sourceName || sourceName.length < 2) sourceName = 'AT PRESS';
+
+  var sumRe  = /class="[^"]*(?:summary|lead|body|text)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div|span)/i;
+  var sm     = block.match(sumRe);
+  var summary= sm ? ncStripTags(sm[1]).trim() : '';
+
+  var imgRe  = /<img[^>]+src="(https?:[^"]+(?:\.jpe?g|\.png|\.webp)[^"]*)"[^>]*/i;
+  var im     = block.match(imgRe);
+  var imgUrl = im ? im[1] : '';
+
+  return {
+    title:       title,
+    source_url:  fullUrl,
+    source_name: sourceName,
+    news_date:   newsDate,
+    summary:     summary,
+    image_url:   imgUrl,
+  };
+}
+
+function ncParseAtPressSimple(html, seen) {
   var articles = [];
-  var re = /<a[^>]+href="(\/releases\/(\d+))"[^>]*>([^<]{5,200})<\/a>/gi;
+  var re = /<a[^>]+href="(\/releases\/\d+)"[^>]*>([\s\S]*?)<\/a>/gi;
   var m;
   while ((m = re.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
-    var title = m[3].trim();
+    var relUrl  = m[1];
+    var fullUrl = 'https://www.atpress.ne.jp' + relUrl;
+    if (seen && seen[fullUrl]) continue;
+    var title = ncStripTags(m[2]).trim();
     if (title.length < 5) continue;
     articles.push({
       title:       title,
-      source_url:  'https://www.atpress.ne.jp' + m[1],
+      source_url:  fullUrl,
       source_name: 'AT PRESS',
       news_date:   '',
       summary:     '',
@@ -388,40 +432,30 @@ function ncGenId() {
 // デバッグ用：実際のHTMLを確認する
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * prtimes.jp の検索URL と HTML構造を確認する。
+ * GASエディタで実行 → ログで 200 になったURLとHTMLを確認する。
+ */
 function ncDebugPrTimes() {
-  var url = 'https://prtimes.jp/main/html/searchrtop/id/0/keyword/' +
-            encodeURIComponent('Adidas');
-  Logger.log('=== URL ===');
-  Logger.log(url);
+  var keyword = 'ファッション';
+  var url = 'https://prtimes.jp/main/html/searchtop/id/0/keyword/' + encodeURIComponent(keyword);
   try {
     var res = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
       followRedirects: true,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
     });
-    Logger.log('HTTP STATUS: ' + res.getResponseCode());
-    var html = res.getContentText();
-    Logger.log('HTML 先頭3000文字:');
-    Logger.log(html.slice(0, 3000));
-  } catch(e) {
-    Logger.log('ERROR: ' + e.message);
-  }
-}
-
-function ncDebugPrTimes2() {
-  var url = 'https://prtimes.jp/topics/fashion';
-  Logger.log('=== URL ===');
-  Logger.log(url);
-  try {
-    var res = UrlFetchApp.fetch(url, {
-      muteHttpExceptions: true,
-      followRedirects: true,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
-    });
-    Logger.log('HTTP STATUS: ' + res.getResponseCode());
-    var html = res.getContentText();
-    Logger.log('HTML 先頭3000文字:');
-    Logger.log(html.slice(0, 3000));
+    var code = res.getResponseCode();
+    Logger.log('STATUS: ' + code + '  URL: ' + url);
+    if (code === 200) {
+      var html = res.getContentText();
+      Logger.log('=== HTML 先頭3000文字 ===');
+      Logger.log(html.slice(0, 3000));
+      Logger.log('=== /rd/p/ を含む行 ===');
+      html.split('\n').forEach(function(line) {
+        if (line.indexOf('/rd/p/') !== -1) Logger.log(line.trim().slice(0, 200));
+      });
+    }
   } catch(e) {
     Logger.log('ERROR: ' + e.message);
   }
