@@ -449,6 +449,77 @@ function ncGenId() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 画像バックフィル
+//   image_url が空の記事を元URLから og:image で埋める。
+//   1回の実行で最大 NC_IMAGE_FILL_MAX 件処理（タイムアウト対策）。
+// ─────────────────────────────────────────────────────────────
+
+var NC_IMAGE_FILL_MAX = 30;
+
+function ncFillMissingImages() {
+  var props   = PropertiesService.getScriptProperties();
+  var poolId  = props.getProperty('NEWS_POOL_ID')  || NC_POOL_ID;
+  var poolTab = props.getProperty('NEWS_POOL_TAB') || NC_POOL_TAB;
+
+  var pool = ncLoadPool(poolId, poolTab);
+  var sheet = pool.sheet;
+  var header = pool.header;
+
+  var imgIdx = header.indexOf('image_url');
+  var urlIdx = header.indexOf('source_url');
+  if (imgIdx < 0 || urlIdx < 0) {
+    Logger.log('image_url / source_url 列が見つかりません');
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  var data    = sheet.getRange(2, 1, lastRow - 1, header.length).getValues();
+  var updated = 0;
+
+  for (var i = 0; i < data.length && updated < NC_IMAGE_FILL_MAX; i++) {
+    var row      = data[i];
+    var existing = String(row[imgIdx] || '').trim();
+    if (existing) continue;
+
+    var sourceUrl = String(row[urlIdx] || '').trim();
+    if (!sourceUrl) continue;
+
+    var ogImage = ncFetchOgImage(sourceUrl);
+    if (ogImage) {
+      sheet.getRange(i + 2, imgIdx + 1).setValue(ogImage);
+      updated++;
+      Logger.log('OK: ' + ogImage.slice(0, 80));
+    } else {
+      Logger.log('画像なし: ' + sourceUrl.slice(0, 80));
+    }
+    Utilities.sleep(400);
+  }
+
+  Logger.log('画像URL更新: ' + updated + '件');
+}
+
+/** URLを取得して og:image を返す。リダイレクト自動追従。 */
+function ncFetchOgImage(url) {
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
+    });
+    if (res.getResponseCode() !== 200) return '';
+    var html = res.getContentText('UTF-8');
+    // property="og:image" content="..." の両パターン
+    var m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+    if (!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    return m ? m[1] : '';
+  } catch(e) {
+    return '';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // デバッグ用：実際のHTMLを確認する
 // ─────────────────────────────────────────────────────────────
 
