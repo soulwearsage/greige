@@ -47,6 +47,14 @@ function onOpen() {
   onOpenNewsCollector();
 }
 
+function createOnOpenTrigger() {
+  var ss = SpreadsheetApp.openById(NC_POOL_ID);
+  ScriptApp.newTrigger('onOpenNewsCollector')
+    .forSpreadsheet(ss)
+    .onOpen()
+    .create();
+}
+
 function onOpenNewsCollector() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu('News Collect', [
     { name: '▶ Collect News (with images)',        functionName: 'collectNews' },
