@@ -526,6 +526,7 @@ function ncFetchOgImage(url) {
       muteHttpExceptions: true,
       followRedirects: true,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
+      deadline: 8,  // 8秒でタイムアウト（30記事×8s = 240s < 6分制限）
     });
     if (res.getResponseCode() !== 200) return '';
     var html = res.getContentText('UTF-8');
