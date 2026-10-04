@@ -276,13 +276,18 @@ function ncFetchGNewsRSS(rssUrl, defaultSource) {
     var sourceName = srcM ? ncStripTags(srcM[1]).trim() : defaultSource;
     if (!sourceName) sourceName = defaultSource;
 
+    // description 内の HTML エンティティを戻してから img src を取得
+    var descHtml = desc.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+    var imgM     = descHtml.match(/<img[^>]+src=["']([^"']+)["']/i);
+    var imageUrl = imgM ? imgM[1] : '';
+
     articles.push({
       title:       title,
       source_url:  link,
       source_name: sourceName,
       news_date:   ncParsePubDate(pubDate),
-      summary:     ncStripTags(desc.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&')).slice(0, 300),
-      image_url:   '',
+      summary:     ncStripTags(descHtml).slice(0, 300),
+      image_url:   imageUrl,
     });
   }
 
