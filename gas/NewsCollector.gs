@@ -647,17 +647,27 @@ function ncGetHtml(url) {
   }
 }
 
-/** Google側のロゴ/サムネは記事画像ではないので必ず弾く */
-function ncIsGoogleImage(url) {
-  return /googleusercontent\.com|gstatic\.com|ggpht\.com|google\.[a-z.]+\//i.test(url);
+/** Google側のロゴ/サムネ or サイト共通OG画像は記事固有の画像ではないので弾く */
+function ncIsGenericImage(url) {
+  if (!url) return true;
+  // Googleの画像
+  if (/googleusercontent\.com|gstatic\.com|ggpht\.com|google\.[a-z.]+\//i.test(url)) return true;
+  // PR TIMESのデフォルトOG画像
+  if (/prtimes\.jp\/common\//i.test(url)) return true;
+  // atpressのデフォルトOG画像
+  if (/atpress\.ne\.jp\/common\//i.test(url)) return true;
+  return false;
 }
+
+// 後方互換
+function ncIsGoogleImage(url) { return ncIsGenericImage(url); }
 
 function ncPickOgImage(html) {
   if (!html) return '';
   var m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
   if (!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
   var img = m ? m[1] : '';
-  if (!img || ncIsGoogleImage(img)) return '';
+  if (ncIsGenericImage(img)) return '';
   return img;
 }
 
