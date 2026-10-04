@@ -193,109 +193,101 @@ function ncAppendRow(sheet, header, art) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// prtimes.jp 検索
+// prtimes.jp 検索（RSSキャッシュ方式）
+// 1実行でRSSを1回だけ取得し、キーワードでフィルタリングする
 // ─────────────────────────────────────────────────────────────
 
+// 実行中のRSSキャッシュ（同一実行内で使い回す）
+var NC_PRTIMES_RSS_CACHE = null;
+
+function ncGetPrTimesRSS() {
+  if (NC_PRTIMES_RSS_CACHE !== null) return NC_PRTIMES_RSS_CACHE;
+  NC_PRTIMES_RSS_CACHE = ncFetchRSSArticles('https://prtimes.jp/rss/', 'PR TIMES');
+  return NC_PRTIMES_RSS_CACHE;
+}
+
 function ncSearchPrTimes(keyword) {
-  var url = 'https://prtimes.jp/main/html/searchtop/id/0/keyword/' +
-            encodeURIComponent(keyword);
-  var html = ncFetch(url);
-  if (!html) return [];
-
-  var articles = [];
-  var seen     = {};
-
-  // パターン1: <article> ブロックを探す
-  var blockRe = /<article[^>]*>([\s\S]*?)<\/article>/gi;
-  var m;
-  while ((m = blockRe.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
-    var block = m[1];
-    var item  = ncExtractPrTimesItem(block, seen);
-    if (item) { articles.push(item); seen[item.source_url] = true; }
-  }
-
-  // パターン2: <li> ブロックを探す（articleが取れなかった場合）
-  if (articles.length === 0) {
-    var liRe = /<li[^>]*class="[^"]*(?:list|release|item)[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
-    while ((m = liRe.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
-      var block = m[1];
-      var item  = ncExtractPrTimesItem(block, seen);
-      if (item) { articles.push(item); seen[item.source_url] = true; }
-    }
-  }
-
-  // フォールバック: /rd/p/ リンクを直接抽出
-  if (articles.length === 0) {
-    articles = ncParsePrTimesSimple(html, seen);
-  }
-
-  return articles;
+  var all = ncGetPrTimesRSS();
+  return ncFilterArticlesByKeyword(all, keyword);
 }
 
-function ncExtractPrTimesItem(block, seen) {
-  // 記事URL: /main/html/rd/p/数字.数字.html 形式
-  var linkRe = /<a[^>]+href="(\/main\/html\/rd\/p\/[^"]+\.html)"[^>]*>([\s\S]*?)<\/a>/i;
-  var lm = block.match(linkRe);
-  if (!lm) return null;
-
-  var relUrl = lm[1];
-  if (seen && seen['https://prtimes.jp' + relUrl]) return null;
-
-  // タイトル: リンクテキスト or <h2>/<h3>/<strong>
-  var title = ncStripTags(lm[2]).trim();
-  if (title.length < 5) {
-    var hm = block.match(/<(?:h[1-6]|strong)[^>]*>([\s\S]*?)<\/(?:h[1-6]|strong)>/i);
-    if (hm) title = ncStripTags(hm[1]).trim();
-  }
-  if (!title || title.length < 5) return null;
-
-  var datm     = block.match(/<time[^>]+datetime="([^"]+)"/i);
-  var newsDate = datm ? datm[1].slice(0, 10) : '';
-
-  var compRe    = /class="[^"]*(?:company|corp|name)[^"]*"[^>]*>([\s\S]*?)<\/(?:span|div|p|a)/i;
-  var cm        = block.match(compRe);
-  var sourceName= cm ? ncStripTags(cm[1]).trim() : 'PR TIMES';
-  if (!sourceName || sourceName.length < 2) sourceName = 'PR TIMES';
-
-  var sumRe  = /class="[^"]*(?:summary|snippet|lead|body)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div|span)/i;
-  var sm     = block.match(sumRe);
-  var summary= sm ? ncStripTags(sm[1]).trim() : '';
-
-  var imgRe  = /<img[^>]+src="(https?:[^"]+(?:\.jpe?g|\.png|\.webp)[^"]*)"[^>]*/i;
-  var im     = block.match(imgRe);
-  var imgUrl = im ? im[1] : '';
-
-  return {
-    title:       title,
-    source_url:  'https://prtimes.jp' + relUrl,
-    source_name: sourceName,
-    news_date:   newsDate,
-    summary:     summary,
-    image_url:   imgUrl,
-  };
-}
-
-function ncParsePrTimesSimple(html, seen) {
-  var articles = [];
-  // /rd/p/数字.数字.html 形式のURLを直接探す
-  var re = /<a[^>]+href="(\/main\/html\/rd\/p\/[\d.]+\.html)"[^>]*>([\s\S]*?)<\/a>/gi;
-  var m;
-  while ((m = re.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
-    var relUrl = m[1];
-    var fullUrl = 'https://prtimes.jp' + relUrl;
-    if (seen && seen[fullUrl]) continue;
-    var title = ncStripTags(m[2]).trim();
-    if (title.length < 5) continue;
-    articles.push({
-      title:       title,
-      source_url:  fullUrl,
-      source_name: 'PR TIMES',
-      news_date:   '',
-      summary:     '',
-      image_url:   '',
+/** RSS/Atom フィードを取得して記事配列に変換 */
+function ncFetchRSSArticles(rssUrl, defaultSource) {
+  var res;
+  try {
+    res = UrlFetchApp.fetch(rssUrl, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
     });
+  } catch(e) {
+    Logger.log('RSS fetch error: ' + rssUrl + ' / ' + e.message);
+    return [];
+  }
+  if (res.getResponseCode() !== 200) {
+    Logger.log('RSS HTTP ' + res.getResponseCode() + ': ' + rssUrl);
+    return [];
+  }
+
+  var articles = [];
+  try {
+    var doc     = XmlService.parse(res.getContentText());
+    var root    = doc.getRootElement();
+    var ns      = root.getNamespace();
+    // RSS 2.0: <rss><channel><item>
+    var channel = root.getChild('channel');
+    var items   = channel ? channel.getChildren('item') : [];
+    // Atom: <feed><entry>
+    if (items.length === 0) items = root.getChildren('entry', ns);
+
+    items.forEach(function(item) {
+      var title   = (item.getChildText('title')   || item.getChildText('title', ns)   || '').trim();
+      var link    = (item.getChildText('link')     || '').trim();
+      // Atom の <link href="...">
+      if (!link) {
+        var linkEl = item.getChild('link', ns);
+        if (linkEl) link = (linkEl.getAttribute('href') || linkEl).toString().trim();
+      }
+      var desc    = (item.getChildText('description') || item.getChildText('summary', ns) || '').trim();
+      var pubDate = (item.getChildText('pubDate')  || item.getChildText('updated', ns)  || '').trim();
+
+      title = ncStripTags(title);
+      if (!title || !link) return;
+
+      articles.push({
+        title:       title,
+        source_url:  link,
+        source_name: defaultSource,
+        news_date:   ncParsePubDate(pubDate),
+        summary:     ncStripTags(desc).slice(0, 300),
+        image_url:   '',
+      });
+    });
+  } catch(e) {
+    Logger.log('RSS parse error: ' + rssUrl + ' / ' + e.message);
   }
   return articles;
+}
+
+/** キーワードでフィルタリング */
+function ncFilterArticlesByKeyword(articles, keyword) {
+  var kw = keyword.toLowerCase();
+  var results = [];
+  for (var i = 0; i < articles.length && results.length < NC_MAX_PER_KEYWORD; i++) {
+    var art = articles[i];
+    var text = (art.title + ' ' + art.summary).toLowerCase();
+    if (text.indexOf(kw) !== -1) results.push(art);
+  }
+  return results;
+}
+
+function ncParsePubDate(pubDate) {
+  if (!pubDate) return '';
+  try {
+    var d = new Date(pubDate);
+    if (isNaN(d.getTime())) return '';
+    return Utilities.formatDate(d, 'Asia/Tokyo', 'yyyy-MM-dd');
+  } catch(e) { return ''; }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -433,28 +425,31 @@ function ncGenId() {
 // ─────────────────────────────────────────────────────────────
 
 /**
- * prtimes.jp の検索URL と HTML構造を確認する。
- * GASエディタで実行 → ログで 200 になったURLとHTMLを確認する。
+ * prtimes.jp RSSフィードの動作確認。
+ * GASエディタで実行 → STATUS: 200 と記事タイトル一覧が出れば成功。
  */
 function ncDebugPrTimes() {
-  var keyword = 'ファッション';
-  var url = 'https://prtimes.jp/main/html/searchtop/id/0/keyword/' + encodeURIComponent(keyword);
+  var rssUrl = 'https://prtimes.jp/rss/';
   try {
-    var res = UrlFetchApp.fetch(url, {
+    var res = UrlFetchApp.fetch(rssUrl, {
       muteHttpExceptions: true,
       followRedirects: true,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
     });
-    var code = res.getResponseCode();
-    Logger.log('STATUS: ' + code + '  URL: ' + url);
-    if (code === 200) {
-      var html = res.getContentText();
-      Logger.log('=== HTML 先頭3000文字 ===');
-      Logger.log(html.slice(0, 3000));
-      Logger.log('=== /rd/p/ を含む行 ===');
-      html.split('\n').forEach(function(line) {
-        if (line.indexOf('/rd/p/') !== -1) Logger.log(line.trim().slice(0, 200));
+    Logger.log('STATUS: ' + res.getResponseCode() + '  URL: ' + rssUrl);
+    if (res.getResponseCode() === 200) {
+      var articles = ncFetchRSSArticles(rssUrl, 'PR TIMES');
+      Logger.log('取得件数: ' + articles.length);
+      articles.slice(0, 5).forEach(function(a) {
+        Logger.log(a.news_date + ' | ' + a.title.slice(0, 60));
       });
+      // キーワードフィルタのテスト
+      var kw = 'ファッション';
+      var filtered = ncFilterArticlesByKeyword(articles, kw);
+      Logger.log('「' + kw + '」でフィルタ → ' + filtered.length + '件');
+    } else {
+      Logger.log('本文先頭500文字:');
+      Logger.log(res.getContentText().slice(0, 500));
     }
   } catch(e) {
     Logger.log('ERROR: ' + e.message);
