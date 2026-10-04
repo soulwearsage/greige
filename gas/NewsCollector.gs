@@ -599,6 +599,78 @@ function ncDebugRssDescription() {
   Logger.log(m[1].slice(0, 2000));
 }
 
+/**
+ * ★これを1回実行してログを全部コピペして渡してください★
+ * 画像が取れない原因を特定するための診断。3つの経路を同時に試す。
+ */
+function ncDiagnose() {
+  // ── テスト1: prtimes.jp の公式RSSが使えるか ──
+  Logger.log('========== TEST 1: prtimes.jp 公式RSS ==========');
+  try {
+    var r1 = UrlFetchApp.fetch('https://prtimes.jp/index.rdf', {
+      muteHttpExceptions: true, followRedirects: true, deadline: 20,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
+    });
+    Logger.log('HTTP: ' + r1.getResponseCode());
+    if (r1.getResponseCode() === 200) {
+      var x = r1.getContentText('UTF-8');
+      Logger.log('サイズ: ' + x.length);
+      var it = x.match(/<item[\s\S]*?<\/item>/i);
+      Logger.log('--- 最初のitem ---');
+      Logger.log(it ? it[0].slice(0, 1200) : '(itemなし) 先頭800字:\n' + x.slice(0, 800));
+    }
+  } catch (e) { Logger.log('例外: ' + e.message); }
+
+  // ── テスト2: Google News の記事URLを開くと何が返るか ──
+  Logger.log('========== TEST 2: Google News 記事URL ==========');
+  try {
+    var rss = UrlFetchApp.fetch(
+      'https://news.google.com/rss/search?q=' + encodeURIComponent('site:prtimes.jp ファッション') +
+      '&hl=ja&gl=JP&ceid=JP:ja',
+      { muteHttpExceptions: true, followRedirects: true, deadline: 20 }
+    ).getContentText();
+    var lm = rss.match(/<link>(https:\/\/news\.google\.com\/rss\/articles\/[^<]+)<\/link>/i);
+    if (!lm) { Logger.log('記事linkが取れません'); }
+    else {
+      var gn = lm[1];
+      Logger.log('GNews URL: ' + gn.slice(0, 120));
+      Logger.log('デコード結果: [' + (ncDecodeGNewsUrl(gn) || '★失敗★') + ']');
+
+      var r2 = UrlFetchApp.fetch(gn, {
+        muteHttpExceptions: true, followRedirects: true, deadline: 20,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' },
+      });
+      Logger.log('HTTP: ' + r2.getResponseCode());
+      var h = r2.getContentText('UTF-8');
+      Logger.log('返却サイズ: ' + h.length);
+      // HTML内に実記事URLが埋まっているか
+      var hits = h.match(/https?:\/\/(?:www\.)?prtimes\.jp[^"'\s<\\]*/g);
+      Logger.log('prtimes.jp URLの出現: ' + (hits ? hits.length + '件' : '0件'));
+      if (hits) {
+        for (var i = 0; i < Math.min(5, hits.length); i++) Logger.log('  ' + hits[i]);
+      } else {
+        Logger.log('--- HTML先頭1000字 ---');
+        Logger.log(h.slice(0, 1000));
+      }
+    }
+  } catch (e) { Logger.log('例外: ' + e.message); }
+
+  // ── テスト3: prtimes.jp の記事ページから og:image が取れるか ──
+  Logger.log('========== TEST 3: prtimes.jp og:image ==========');
+  try {
+    var r3 = UrlFetchApp.fetch('https://prtimes.jp/main/html/rd/p/000000001.000000001.html', {
+      muteHttpExceptions: true, followRedirects: true, deadline: 20,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
+    });
+    Logger.log('HTTP: ' + r3.getResponseCode());
+    var h3 = r3.getContentText('UTF-8');
+    var og = h3.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+    Logger.log('og:image: ' + (og ? og[1] : '★取れず★'));
+  } catch (e) { Logger.log('例外: ' + e.message); }
+
+  Logger.log('========== 診断おわり ==========');
+}
+
 function ncDebugAtPress() {
   var url = 'https://www.atpress.ne.jp/search?keyword=' +
             encodeURIComponent('Adidas') + '&sort=date';
