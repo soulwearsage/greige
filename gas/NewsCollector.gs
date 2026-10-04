@@ -261,7 +261,8 @@ function ncLoadPrTimesFeed() {
     }
 
     var items = [];
-    var re = /<item[^>]*>([\s\S]*?)<\/item>/gi;
+    // <items><rdf:Seq> を拾わないよう、item の直後は空白か > に限定する
+    var re = /<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi;
     var m;
     while ((m = re.exec(xml)) !== null) {
       var b = m[1];
@@ -803,17 +804,23 @@ function ncDiagnose() {
     }
   } catch (e) { Logger.log('例外: ' + e.message); }
 
-  // ── テスト3: prtimes.jp の記事ページから og:image が取れるか ──
+  // ── テスト3: 公式RSSの実記事から og:image が取れるか ──
   Logger.log('========== TEST 3: prtimes.jp og:image ==========');
   try {
-    var r3 = UrlFetchApp.fetch('https://prtimes.jp/main/html/rd/p/000000001.000000001.html', {
-      muteHttpExceptions: true, followRedirects: true, deadline: 20,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
-    });
-    Logger.log('HTTP: ' + r3.getResponseCode());
-    var h3 = r3.getContentText('UTF-8');
-    var og = h3.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
-    Logger.log('og:image: ' + (og ? og[1] : '★取れず★'));
+    NC_PR_FEED_CACHE = null;              // キャッシュを捨てて取り直す
+    var feed = ncLoadPrTimesFeed();
+    Logger.log('公式RSSの記事数: ' + feed.length);
+    if (!feed.length) {
+      Logger.log('★公式RSSから記事が取れていません★');
+    } else {
+      for (var k = 0; k < Math.min(3, feed.length); k++) {
+        var a = feed[k];
+        var r = ncResolveArticle(a.source_url);
+        Logger.log((k + 1) + '. ' + a.title.slice(0, 40));
+        Logger.log('   URL: ' + a.source_url);
+        Logger.log('   IMG: ' + (r.image || '★取れず★'));
+      }
+    }
   } catch (e) { Logger.log('例外: ' + e.message); }
 
   Logger.log('========== 診断おわり ==========');
