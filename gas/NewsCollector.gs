@@ -207,6 +207,7 @@ function ncSearchPrTimes(keyword) {
 
 /**
  * Google News RSS を取得して記事配列に変換。
+ * CDATA を正しく扱うためテキストパースを使用する。
  * description 内の <a href> から元記事URLを抽出する。
  */
 function ncFetchGNewsRSS(rssUrl, defaultSource) {
@@ -226,44 +227,55 @@ function ncFetchGNewsRSS(rssUrl, defaultSource) {
     return [];
   }
 
+  var text     = res.getContentText();
   var articles = [];
-  try {
-    var doc     = XmlService.parse(res.getContentText());
-    var channel = doc.getRootElement().getChild('channel');
-    if (!channel) return [];
-    var items = channel.getChildren('item');
 
-    items.forEach(function(item) {
-      if (articles.length >= NC_MAX_PER_KEYWORD) return;
+  // <item>...</item> を正規表現で抽出（CDATA対応）
+  var itemRe = /<item>([\s\S]*?)<\/item>/gi;
+  var im;
+  while ((im = itemRe.exec(text)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
+    var block = im[1];
 
-      var title   = ncStripTags(item.getChildText('title')   || '').trim();
-      var desc    = (item.getChildText('description') || '').trim();
-      var pubDate = (item.getChildText('pubDate')     || '').trim();
-      var gnLink  = (item.getChildText('link')        || '').trim();
-      var source  = item.getChild('source');
-      var sourceName = source ? (source.getText() || defaultSource) : defaultSource;
+    // <title>: CDATA or plain text
+    var titleM = block.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
+    var title  = titleM ? ncStripTags(titleM[1]).trim() : '';
+    if (!title) continue;
 
-      if (!title) return;
+    // <description>: CDATA の中に <a href="元記事URL"> が入っている
+    var descM = block.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
+    var desc  = descM ? descM[1] : '';
 
-      // description の <a href="..."> から元記事URLを抽出
-      var origUrl = '';
-      var am = desc.match(/<a[^>]+href="(https?:\/\/[^"]+)"/i);
-      if (am) origUrl = am[1];
-      var link = origUrl || gnLink;
-      if (!link) return;
+    // 元記事URL（description内の最初のhref）
+    var origUrl = '';
+    var aM = desc.match(/href=["'](https?:\/\/[^"']+)["']/i);
+    if (aM) origUrl = aM[1];
 
-      articles.push({
-        title:       title,
-        source_url:  link,
-        source_name: sourceName || defaultSource,
-        news_date:   ncParsePubDate(pubDate),
-        summary:     ncStripTags(desc).slice(0, 300),
-        image_url:   '',
-      });
+    // <link>: Google News リダイレクトURL（フォールバック）
+    var linkM  = block.match(/<link>([\s\S]*?)<\/link>/i);
+    var gnLink = linkM ? linkM[1].trim() : '';
+
+    var link = origUrl || gnLink;
+    if (!link) continue;
+
+    // <pubDate>
+    var dateM   = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/i);
+    var pubDate = dateM ? dateM[1].trim() : '';
+
+    // <source>: 配信元名
+    var srcM       = block.match(/<source[^>]*>([\s\S]*?)<\/source>/i);
+    var sourceName = srcM ? ncStripTags(srcM[1]).trim() : defaultSource;
+    if (!sourceName) sourceName = defaultSource;
+
+    articles.push({
+      title:       title,
+      source_url:  link,
+      source_name: sourceName,
+      news_date:   ncParsePubDate(pubDate),
+      summary:     ncStripTags(desc).slice(0, 300),
+      image_url:   '',
     });
-  } catch(e) {
-    Logger.log('GNews RSS parse error: ' + e.message);
   }
+
   return articles;
 }
 
