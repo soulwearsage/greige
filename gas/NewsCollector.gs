@@ -79,38 +79,55 @@ function ncCollect(dryRun) {
   var sheet     = pool.sheet;
   var header    = pool.header;
 
-  // ① 両サイトから新着記事を一括取得
+  // ① 両サイト新着を一括取得してRSS照合用プールを作る
   NC_PR_FEED_CACHE = null;
   var prFeed = ncLoadPrTimesFeed();
   var apFeed = ncLoadAtPressFeed();
-  Logger.log('PR TIMES: ' + prFeed.length + '件 / AT PRESS: ' + apFeed.length + '件');
+  Logger.log('PR TIMES RSS: ' + prFeed.length + '件 / AT PRESS: ' + apFeed.length + '件');
 
-  // ② 合算して重複除去
-  var allArticles = [];
+  // ② RSS記事をキーワード照合（CULTURE・TOPICなど英語でも一致しやすいもの）
+  var queue    = [];
   var seenUrls = {};
-  var combined = prFeed.concat(apFeed);
-  for (var i = 0; i < combined.length; i++) {
-    var a = combined[i];
-    if (a.source_url && !seenUrls[a.source_url]) {
-      seenUrls[a.source_url] = true;
-      allArticles.push(a);
-    }
-  }
-  Logger.log('合算（重複除去後）: ' + allArticles.length + '件');
 
-  // ③ NEWS_KEYWORDS全件で照合
-  var queue = [];
-  for (var j = 0; j < allArticles.length; j++) {
-    var art = allArticles[j];
+  var combined = prFeed.concat(apFeed);
+  for (var j = 0; j < combined.length; j++) {
+    var art = combined[j];
+    if (!art.source_url || seenUrls[art.source_url]) continue;
     var hay = (art.title + ' ' + art.summary).toLowerCase();
-    var hit = null;
     for (var k = 0; k < keywords.length; k++) {
       var kwText = String(keywords[k].keyword || '').toLowerCase();
-      if (kwText && hay.indexOf(kwText) !== -1) { hit = keywords[k]; break; }
+      if (kwText && hay.indexOf(kwText) !== -1) {
+        art._kw = keywords[k];
+        seenUrls[art.source_url] = true;
+        queue.push(art);
+        break;
+      }
     }
-    if (hit) { art._kw = hit; queue.push(art); }
   }
-  Logger.log('キーワード一致: ' + queue.length + '件 / キーワード数: ' + keywords.length);
+  Logger.log('RSS照合ヒット: ' + queue.length + '件');
+
+  // ③ BRAND・PERSONキーワードはPR TIMES検索ページで直接取得
+  //    （英語ブランド名が日本語RSSタイトルにマッチしないため）
+  if (new Date().getTime() - t0 < NC_TIME_BUDGET_MS * 0.5) {
+    var brandKws = keywords.filter(function(kw) {
+      return kw.type === 'BRAND' || kw.type === 'PERSON';
+    });
+    var kwLimit = Math.min(brandKws.length, NC_MAX_KEYWORDS);
+    for (var b = 0; b < kwLimit; b++) {
+      if (new Date().getTime() - t0 > NC_TIME_BUDGET_MS * 0.6) break;
+      var kwObj = brandKws[b];
+      var results = ncSearchPrTimesPage(kwObj.keyword);
+      for (var r = 0; r < results.length; r++) {
+        var a = results[r];
+        if (a.source_url && !seenUrls[a.source_url]) {
+          a._kw = kwObj;
+          seenUrls[a.source_url] = true;
+          queue.push(a);
+        }
+      }
+    }
+    Logger.log('BRAND/PERSON検索追加後: ' + queue.length + '件');
+  }
 
   var saved = 0, noImage = 0, dup = 0, timeUp = false;
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
@@ -127,7 +144,7 @@ function ncCollect(dryRun) {
       img = ncResolveArticle(art.source_url).image;
       if (!img && NC_REQUIRE_IMAGE) {
         noImage++;
-        Logger.log('× 画像なしで除外: ' + art.title.slice(0, 40));
+        Logger.log('\u00d7 \u753b\u50cf\u306a\u3057\u3067\u9664\u5916: ' + art.title.slice(0, 40));
         continue;
       }
     }
@@ -156,11 +173,11 @@ function ncCollect(dryRun) {
     Logger.log('\u2713 ' + art.title.slice(0, 40));
   }
 
-  var msg = (dryRun ? '【ドライラン】' : '【収集完了】') + '\n' +
-    '新規保存: ' + saved + '件（すべて画像付き）\n' +
-    '画像なしで除外: ' + noImage + '件\n' +
-    '重複スキップ: ' + dup + '件' +
-    (timeUp ? '\n※時間切れで途中終了。もう一度実行すると続きを取得します。' : '');
+  var msg = (dryRun ? '\u300c\u30c9\u30e9\u30a4\u30e9\u30f3\u300d' : '\u300c\u53ce\u96c6\u5b8c\u4e86\u300d') + '\n' +
+    '\u65b0\u898f\u4fdd\u5b58: ' + saved + '\u4ef6\uff08\u3059\u3079\u3066\u753b\u50cf\u4ed8\u304d\uff09\n' +
+    '\u753b\u50cf\u306a\u3057\u3067\u9664\u5916: ' + noImage + '\u4ef6\n' +
+    '\u91cd\u8907\u30b9\u30ad\u30c3\u30d7: ' + dup + '\u4ef6' +
+    (timeUp ? '\n\u203b\u6642\u9593\u5207\u308c\u3067\u9014\u4e2d\u7d42\u4e86\u3002\u3082\u3046\u4e00\u5ea6\u5b9f\u884c\u3059\u308b\u3068\u7d9a\u304d\u3092\u53d6\u5f97\u3057\u307e\u3059\u3002' : '');
   Logger.log(msg);
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) {}
 }
