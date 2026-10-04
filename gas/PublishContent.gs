@@ -58,7 +58,7 @@ var NEEDED_COLUMNS = [
   'review_status', 'disclosure_type', 'disclosure_included',
   'wp_post_id', 'wp_url', 'wp_post_type', 'wp_status',
   'featured_image_id', 'wp_category', 'wp_tags',
-  'published_at', 'last_synced_at',
+  'published_at', 'wp_last_synced_at', 'wp_error',
 ];
 
 // 本文中のPR表記らしき文字列（見つからなければ警告。ブロックはしない）
@@ -354,7 +354,8 @@ function runPublish(isDryRun) {
         sheet.getRange(sheetRow, hmap['wp_post_id']     + 1).setValue(result.body.id);
         sheet.getRange(sheetRow, hmap['wp_url']         + 1).setValue(result.body.link || '');
         sheet.getRange(sheetRow, hmap['wp_status']      + 1).setValue(result.body.status || '');
-        sheet.getRange(sheetRow, hmap['last_synced_at'] + 1).setValue(now);
+        sheet.getRange(sheetRow, hmap['wp_last_synced_at'] + 1).setValue(now);
+        sheet.getRange(sheetRow, hmap['wp_error']           + 1).setValue('');
 
         // 公開済みになった場合のみ published_at を記録（未記入のときだけ）
         if (result.body.status === 'publish' && !cell(row, hmap, 'published_at')) {
@@ -365,6 +366,7 @@ function runPublish(isDryRun) {
       } else {
         failed++;
         var msg = result.body.message || JSON.stringify(result.body);
+        sheet.getRange(sheetRow, hmap['wp_error'] + 1).setValue('HTTP ' + result.code + ': ' + msg);
         lines.push('✗ ' + label + ' → HTTP ' + result.code + ': ' + msg);
       }
 
@@ -372,6 +374,7 @@ function runPublish(isDryRun) {
 
     } catch (e) {
       failed++;
+      try { sheet.getRange(sheetRow, hmap['wp_error'] + 1).setValue('例外: ' + e.message); } catch (e2) {}
       lines.push('✗ ' + label + ' → 例外: ' + e.message);
     }
   });

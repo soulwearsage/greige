@@ -9,7 +9,9 @@
 
 function migrateContentMaster() {
   var TAB = 'CONTENT_MASTER';
-  var RENAMES = [['body', 'article_body']];
+  var RENAMES = [['body', 'article_body'], ['last_synced_at', 'wp_last_synced_at']];
+  // 中身が完全に空のときだけ消す。1セルでも値があれば消さない。
+  var DROP_IF_EMPTY = ['last_synced_at'];
 
   var SCHEMA = (
     'content_id,plan_id,content_type,version,prompt_version,main_product_id,' +
@@ -19,11 +21,12 @@ function migrateContentMaster() {
     'generated_key_points,call_to_action,instagram_caption,x_text,video_copy,' +
     'status,review_status,created_at,updated_at,approved_at,approved_by,notes,' +
     'wp_post_id,wp_url,wp_post_type,wp_status,slug,featured_image_id,wp_category,' +
-    'wp_tags,published_at,last_synced_at,disclosure_type,disclosure_included,' +
-    'meta_title,meta_description,target_keyword,secondary_keywords,search_intent,' +
-    'canonical_url,duplicate_key,primary_merchant,price_range_min,price_range_max,' +
-    'link_check_status,link_checked_at,review_due_at,generated_by,generated_at,' +
-    'human_edited,word_count,source_research_id,scheduled_at,claude_api_enabled,' +
+    'wp_tags,published_at,wp_last_synced_at,wp_content_version,wp_error,' +
+    'disclosure_type,disclosure_included,meta_title,meta_description,' +
+    'target_keyword,secondary_keywords,search_intent,canonical_url,duplicate_key,' +
+    'primary_merchant,price_range_min,price_range_max,link_check_status,' +
+    'link_checked_at,review_due_at,generated_by,generated_at,human_edited,' +
+    'word_count,source_research_id,scheduled_at,claude_api_enabled,' +
     'claude_api_model,claude_api_status,writing_rules_version,' +
     'gemini_research_result,gemini_research_at,chatgpt_planning,chatgpt_article,' +
     'chatgpt_article_at,claude_article,claude_article_at,sns_post_type,' +
@@ -45,7 +48,7 @@ function migrateContentMaster() {
     if (a === -1 && b !== -1) { log.push('= ' + r[1] + ' は既にリネーム済み'); return; }
     if (a === -1) { log.push('= ' + r[0] + ' なし（新規追加で対応）'); return; }
     if (b !== -1) {
-      log.push('! ' + r[0] + ' と ' + r[1] + ' が両方あります。中身を確認して手で片方を削除してください。');
+      log.push('= ' + r[0] + ' と ' + r[1] + ' が両方あります（下の処理で判定します）');
       return;
     }
     sheet.getRange(1, a + 1).setValue(r[1]);
@@ -68,7 +71,26 @@ function migrateContentMaster() {
     log.push('= 追加する列なし');
   }
 
-  // 3. 結果
+
+  // 3. 重複した空列を削除（空であることを確認できた場合のみ）
+  DROP_IF_EMPTY.forEach(function(name) {
+    var h = mcHeader_(sheet);
+    var i = mcFind_(h, name);
+    if (i === -1) return;
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      var vals = sheet.getRange(2, i + 1, lastRow - 1, 1).getValues();
+      var filled = vals.filter(function(r) { return mcNorm_(r[0]) !== ''; }).length;
+      if (filled > 0) {
+        log.push('! ' + name + ' に ' + filled + '件データがあるため削除しませんでした');
+        return;
+      }
+    }
+    sheet.deleteColumn(i + 1);
+    log.push('- ' + name + ' を削除（空だったため）');
+  });
+
+  // 4. 結果
   var after = mcHeader_(sheet);
   var extra = after.filter(function(x) {
     return mcNorm_(x) && SCHEMA.indexOf(String(x).trim()) === -1;

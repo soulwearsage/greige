@@ -22,21 +22,16 @@ var DEFAULT_SPREADSHEET_ID = '1C4ljnBvsJmGzQe6aaWbdIUj4mXYjl7Mk3bPhdQfJQWw';
 var DEFAULT_TAB_NAME       = 'CONTENT_MASTER';
 
 var SCHEMA = [
-  // ── 識別・企画 ──
   'content_id',
   'plan_id',
   'content_type',
   'version',
   'prompt_version',
-
-  // ── 素材参照 ──
   'main_product_id',
   'related_product_ids',
   'main_image_id',
   'image_ids',
   'affiliate_link_ids',
-
-  // ── 編集方針 ──
   'editorial_theme',
   'editorial_reason',
   'target_reader',
@@ -45,8 +40,6 @@ var SCHEMA = [
   'key_points',
   'structure',
   'tone',
-
-  // ── 本文 ──
   'title',
   'subtitle',
   'lead',
@@ -54,13 +47,9 @@ var SCHEMA = [
   'article_body',
   'generated_key_points',
   'call_to_action',
-
-  // ── SNS出力 ──
   'instagram_caption',
   'x_text',
   'video_copy',
-
-  // ── 状態・監査 ──
   'status',
   'review_status',
   'created_at',
@@ -68,8 +57,6 @@ var SCHEMA = [
   'approved_at',
   'approved_by',
   'notes',
-
-  // ── WordPress公開 ──
   'wp_post_id',
   'wp_url',
   'wp_post_type',
@@ -79,9 +66,9 @@ var SCHEMA = [
   'wp_category',
   'wp_tags',
   'published_at',
-  'last_synced_at',
-
-  // ── 法令・SEO ──
+  'wp_last_synced_at',
+  'wp_content_version',
+  'wp_error',
   'disclosure_type',
   'disclosure_included',
   'meta_title',
@@ -91,8 +78,6 @@ var SCHEMA = [
   'search_intent',
   'canonical_url',
   'duplicate_key',
-
-  // ── 運用・計測 ──
   'primary_merchant',
   'price_range_min',
   'price_range_max',
@@ -105,13 +90,9 @@ var SCHEMA = [
   'word_count',
   'source_research_id',
   'scheduled_at',
-
-  // ── Claude API 制御 ──
   'claude_api_enabled',
   'claude_api_model',
   'claude_api_status',
-
-  // ── CONTENT SYSTEM 工程 ──
   'writing_rules_version',
   'gemini_research_result',
   'gemini_research_at',
@@ -120,8 +101,6 @@ var SCHEMA = [
   'chatgpt_article_at',
   'claude_article',
   'claude_article_at',
-
-  // ── SNS出力（媒体別） ──
   'sns_post_type',
   'video_template_id',
   'remotion_video_url',
