@@ -298,18 +298,20 @@ function ncFetchGNewsRSS(rssUrl, defaultSource) {
     var sourceName = srcM ? ncStripTags(srcM[1]).trim() : defaultSource;
     if (!sourceName) sourceName = defaultSource;
 
-    // description 内の HTML エンティティを戻してから img src を取得
+    // description内のHTMLエンティティを戻す
     var descHtml = desc.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
-    var imgM     = descHtml.match(/<img[^>]+src=["']([^"']+)["']/i);
-    var imageUrl = imgM ? imgM[1] : '';
+
+    // description内の <a href="実記事URL"> を取得（Google NewsリダイレクトURLより優先）
+    var aM      = descHtml.match(/<a[^>]+href=["'](https?:\/\/[^"']+)["']/i);
+    var realUrl = aM ? aM[1] : link;  // 取れなければGoogle NewsのlinkをURL
 
     articles.push({
       title:       title,
-      source_url:  link,
+      source_url:  realUrl,
       source_name: sourceName,
       news_date:   ncParsePubDate(pubDate),
       summary:     ncStripTags(descHtml).slice(0, 300),
-      image_url:   imageUrl,
+      image_url:   '',
     });
   }
 
