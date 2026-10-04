@@ -32,10 +32,9 @@ var NC_COLLECT_LOOPS = 5;
 
 function onOpenNewsCollector() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu('ニュース収集', [
-    { name: '▶ ① 記事を収集（30件×5回）', functionName: 'collectNewsLooped' },
-    { name: '▶ ① 記事を収集（30件1回のみ）', functionName: 'collectNews' },
-    { name: '▶ ② 画像URLを補完（30件ずつ）', functionName: 'ncFillMissingImages' },
-    { name: '▶ ドライラン（取得のみ・保存しない）', functionName: 'collectNewsDryRun' },
+    { name: '▶ ニュースを収集（30件・画像付き）', functionName: 'collectNews' },
+    { name: '▶ 画像URLだけ補完（既存記事）',     functionName: 'ncFillMissingImages' },
+    { name: '▶ ドライラン（確認のみ）',           functionName: 'collectNewsDryRun' },
   ]);
 }
 
@@ -112,10 +111,14 @@ function ncCollect(dryRun) {
       existUrls[art.source_url] = true;
 
       if (!dryRun) {
+        // 画像URLが空なら収集と同時に取得（deadline:8 で最大8秒）
+        if (!art.image_url) {
+          art.image_url = ncFetchOgImage(art.source_url);
+        }
         ncAppendRow(sheet, header, art);
       }
       saved++;
-      Logger.log((dryRun ? '[DRY] ' : '') + art.title + ' / ' + art.source_url);
+      Logger.log((dryRun ? '[DRY] ' : '') + art.title + ' IMG:' + (art.image_url ? '✓' : '×'));
     }
     if (saved >= NC_MAX_TOTAL) break;
 
