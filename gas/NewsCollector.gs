@@ -58,6 +58,9 @@ function createOnOpenTrigger() {
 function onOpenNewsCollector() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu('News Collect', [
     { name: '▶ Collect News (with images)',        functionName: 'collectNews' },
+    { name: '▶ Clear Pool & Collect Fresh',        functionName: 'ncClearAndCollect' },
+    { name: '▶ Clear NEWS_POOL',                   functionName: 'ncClearPool' },
+    { name: '── ─ ──',                             functionName: 'ncDiagnose' },
     { name: '▶ Debug Collection (no image check)', functionName: 'ncDebugBulkCollect' },
     { name: '▶ Fill Missing Images',               functionName: 'ncFillMissingImages' },
     { name: '▶ Remove Google News Rows',           functionName: 'ncClearGoogleNewsRows' },
@@ -76,6 +79,53 @@ var NC_SELECTED_NEWS_TAB = 'シート1';
 var NC_WP_URL            = 'https://greige.online';
 var NC_WP_USER           = 'AICO';
 // WP_APP_PASS は Script Properties に設定: PropertiesService.getScriptProperties().setProperty('WP_APP_PASS','xxxx xxxx ...')
+
+/**
+ * NEWS_POOL のデータ行をすべて削除してヘッダーだけの状態に戻す。
+ * 実行前に確認ダイアログを出す。
+ */
+function ncClearPool() {
+  var props   = PropertiesService.getScriptProperties();
+  var poolId  = props.getProperty('NEWS_POOL_ID') || NC_POOL_ID;
+  var poolTab = props.getProperty('NEWS_POOL_TAB') || NC_POOL_TAB;
+  var ss      = SpreadsheetApp.openById(poolId);
+  var sheet   = ss.getSheetByName(poolTab);
+  if (!sheet) { Logger.log('NEWS_POOL タブが見つかりません'); return; }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    try { SpreadsheetApp.getUi().alert('NEWS_POOL はすでに空です。'); } catch(e) {}
+    Logger.log('NEWS_POOL はすでに空です');
+    return;
+  }
+
+  var confirmed = false;
+  try {
+    var ui  = SpreadsheetApp.getUi();
+    var res = ui.alert(
+      'NEWS_POOL をクリアしますか？',
+      (lastRow - 1) + '行のデータをすべて削除します。この操作は元に戻せません。',
+      ui.ButtonSet.OK_CANCEL
+    );
+    confirmed = (res === ui.Button.OK);
+  } catch(e) {
+    confirmed = true; // トリガー実行時などUIなし → そのまま実行
+  }
+
+  if (!confirmed) { Logger.log('キャンセルされました'); return; }
+
+  sheet.deleteRows(2, lastRow - 1);
+  Logger.log('NEWS_POOL をクリアしました（' + (lastRow - 1) + '行削除）');
+  try { SpreadsheetApp.getUi().alert('NEWS_POOL をクリアしました（' + (lastRow - 1) + '行削除）'); } catch(e) {}
+}
+
+/**
+ * NEWS_POOL をクリアしてから ncCollect を実行する。
+ */
+function ncClearAndCollect() {
+  ncClearPool();
+  ncCollect(false);
+}
 
 /**
  * NEWS_POOL (status=NEW) の記事を SELECTED_NEWS へ転送する。
@@ -218,28 +268,26 @@ function ncDebugBulkCollect() {
   Logger.log('キーワード総数: ' + keywords.length);
 
   NC_PR_FEED_CACHE = null;
-  var prFeed    = ncLoadPrTimesFeed();
-  var prListing = ncLoadPrTimesListing();
-  var prTopics  = ncLoadPrTimesTopics();
-  var apFeed    = ncLoadAtPressFeed();
+  var prFeed   = ncLoadPrTimesFeed();
+  var prTopics = ncLoadPrTimesTopics();
+  var apFeed   = ncLoadAtPressFeed();
 
   Logger.log('=== 取得件数 ===');
-  Logger.log('PR TIMES RSS: '    + prFeed.length);
-  Logger.log('PR TIMES 一覧: '  + prListing.length);
-  Logger.log('PR TIMES トピック: ' + prTopics.length);
-  Logger.log('AT PRESS: '        + apFeed.length);
+  Logger.log('PR TIMES RSS: '       + prFeed.length);
+  Logger.log('PR TIMES トピック: '  + prTopics.length);
+  Logger.log('AT PRESS: '           + apFeed.length);
 
   // AT PRESS のタイトル取得状況
   var apNoTitle = 0;
   apFeed.forEach(function(a) { if (!a.title || a.title.length < 3) apNoTitle++; });
   Logger.log('AT PRESS タイトルなし: ' + apNoTitle + '件 / ' + apFeed.length + '件');
 
-  // PR TIMES 一覧のタイトル取得状況
+  // PR TIMES トピックのタイトル取得状況
   var prNoTitle = 0;
-  prListing.concat(prTopics).forEach(function(a) { if (!a.title || a.title.length < 3) prNoTitle++; });
-  Logger.log('PR TIMES 一覧+トピック タイトルなし: ' + prNoTitle + '件');
+  prTopics.forEach(function(a) { if (!a.title || a.title.length < 3) prNoTitle++; });
+  Logger.log('PR TIMES トピック タイトルなし: ' + prNoTitle + '件');
 
-  var combined = prFeed.concat(prListing).concat(prTopics).concat(apFeed);
+  var combined = prFeed.concat(prTopics).concat(apFeed);
   Logger.log('=== 合計記事: ' + combined.length + '件 ===');
 
   // キーワード照合
@@ -329,19 +377,19 @@ function ncCollect(dryRun) {
   var header    = pool.header;
 
   // ① 両サイト新着を一括取得してRSS照合用プールを作る
+  // ※ PR TIMES 汎用一覧（全カテゴリ）は使わない。ファッション・美容・ライフスタイル
+  //    トピックページと AT PRESS のみを対象とし、ジャンル外の記事混入を防ぐ。
   NC_PR_FEED_CACHE = null;
-  var prFeed    = ncLoadPrTimesFeed();      // 公式RSS 200件
-  var prListing = ncLoadPrTimesListing();   // 新着一覧ページ
-  var prTopics  = ncLoadPrTimesTopics();    // ファッション・美容トピックページ
-  var apFeed    = ncLoadAtPressFeed();      // AT PRESS 新着一覧（複数ページ）
-  Logger.log('PR TIMES RSS ' + prFeed.length + '件 / PR TIMES一覧 ' + prListing.length +
-             '件 / PR TIMESトピック ' + prTopics.length + '件 / AT PRESS ' + apFeed.length + '件');
+  var prFeed   = ncLoadPrTimesFeed();    // ファッション・美容トピックRSS（topics/11, /46 等）
+  var prTopics = ncLoadPrTimesTopics();  // ファッション・美容・ライフスタイルトピックページ
+  var apFeed   = ncLoadAtPressFeed();    // AT PRESS 新着一覧（複数ページ）
+  Logger.log('PR TIMES RSS ' + prFeed.length + '件 / PR TIMESトピック ' + prTopics.length + '件 / AT PRESS ' + apFeed.length + '件');
 
   // ② RSS記事をキーワード照合（CULTURE・TOPICなど英語でも一致しやすいもの）
   var queue    = [];
   var seenUrls = {};
 
-  var combined = prFeed.concat(prListing).concat(prTopics).concat(apFeed);
+  var combined = prFeed.concat(prTopics).concat(apFeed);
   for (var j = 0; j < combined.length; j++) {
     var art = combined[j];
     if (!art.source_url || seenUrls[art.source_url]) continue;
