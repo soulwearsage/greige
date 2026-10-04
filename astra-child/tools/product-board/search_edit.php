@@ -840,78 +840,57 @@
   }
   @media (min-width: 768px){ header.pb-header { top: var(--rail); } }
 
-  /* ===== NEWS BOARD ===== */
-  .news-wrap{
-    padding: 24px 16px 80px;
+  /* ===== NEWS BOARD : 画像ピッカー ===== */
+  .ni-section{
+    border-top: 1px solid var(--border);
+    margin-top: 28px; padding-top: 22px;
   }
-  @media (min-width: 768px){ .news-wrap{ padding: 28px 40px 80px; } }
-  @media (min-width: 1024px){ .news-wrap{ padding: 28px var(--rail) 80px; } }
-  .news-block{
-    max-width: 480px;
-    margin-bottom: 32px;
+  .ni-head{
+    font-family: var(--nav-font); font-size: 9px;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--fg-muted); margin-bottom: 6px;
   }
-  .news-block-label{
-    font-family: var(--nav-font);
-    font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
-    color: var(--fg-muted); margin: 0 0 14px;
+  .ni-sub{
+    font-size: 11px; color: var(--fg-muted);
+    line-height: 1.6; margin-bottom: 16px;
   }
-  .news-srch-form{
-    display: flex; align-items: flex-end; gap: 0;
-    border-bottom: 2px solid var(--fg);
+  .ni-loading{ font-size: 11px; color: var(--fg-muted); }
+  .ni-grid{
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 10px; margin-bottom: 18px;
   }
-  .news-srch-input{
-    flex: 1; min-width: 0; border: none; outline: none;
-    background: transparent; box-shadow: none;
-    -webkit-appearance: none; appearance: none;
-    font-family: var(--nav-font); font-size: 13px;
-    letter-spacing: 0.04em; color: var(--fg); padding: 9px 0;
+  .ni-item{
+    position: relative; cursor: pointer;
+    border: 2px solid transparent; background: #f4f4f4;
+    transition: border-color 0.15s;
   }
-  .news-srch-input::placeholder{ color: var(--fg-muted); }
-  .news-srch-btn{
-    display: flex; align-items: center; gap: 7px;
-    background: var(--fg); border: none; outline: none;
-    font-family: var(--nav-font); font-size: 11px; font-weight: 600;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--bg); cursor: pointer; padding: 10px 14px;
-    white-space: nowrap;
-    -webkit-appearance: none; appearance: none; transition: opacity 0.2s;
-  }
-  .news-srch-btn svg{ width: 13px; height: 13px; flex-shrink: 0; }
-  .news-srch-btn:hover{ opacity: 0.65; }
-  .news-sites{
-    display: flex; flex-direction: column; gap: 0;
-  }
-  .news-site{ border-top: 1px solid var(--border); }
-  .news-site:last-child{ border-bottom: 1px solid var(--border); }
-  .news-site a{
-    display: flex; flex-direction: column; gap: 2px;
-    padding: 11px 0; text-decoration: none; transition: opacity 0.2s;
-  }
-  .news-site a:hover{ opacity: 0.45; }
-  .news-site-name{
-    font-family: var(--nav-font); font-size: 13px; font-weight: 600;
-    letter-spacing: -0.01em; color: var(--fg); line-height: 1.3;
-  }
-  .news-site-url{
-    font-family: var(--nav-font); font-size: 10px;
-    letter-spacing: 0.02em; color: var(--fg-muted);
-  }
-  .news-img-area{
-    border-top: 1px solid var(--border); padding-top: 24px;
-  }
-  .news-img-wrap{
+  .ni-item.checked{ border-color: var(--fg); }
+  .ni-item .ni-thumb{
     width: 100%; aspect-ratio: 4 / 3;
-    background: #f4f4f4; overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
-    position: relative;
+    overflow: hidden; display: flex;
+    align-items: center; justify-content: center;
   }
-  .news-img-wrap img{
+  .ni-item img{
     width: 100%; height: 100%; object-fit: cover; display: block;
   }
-  .news-img-placeholder{
-    font-family: var(--nav-font); font-size: 9px;
-    letter-spacing: 0.2em; text-transform: uppercase; color: #ccc;
+  .ni-item input[type="checkbox"]{
+    position: absolute; top: 8px; left: 8px;
+    width: 18px; height: 18px; cursor: pointer;
+    accent-color: #1a1a1a; margin: 0; z-index: 2;
   }
+  .ni-actions{
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .ni-save-btn{
+    background: var(--fg); color: var(--bg); border: 1px solid var(--fg);
+    font-family: var(--nav-font); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 11px 20px; cursor: pointer; transition: opacity 0.2s;
+  }
+  .ni-save-btn:hover{ opacity: 0.7; }
+  .ni-save-btn:disabled{ opacity: 0.4; cursor: default; }
+  .ni-count{ font-size: 11px; color: var(--fg-muted); }
+  .ni-result{ font-size: 11px; color: var(--fg-muted); }
 </style>
 </head>
 <body class="greige-board">
@@ -928,62 +907,24 @@
 </nav>
 
 <section id="view-news" hidden>
-  <div class="news-wrap">
-
-    <div class="news-block">
-      <p class="news-block-label">Search</p>
-      <form class="news-srch-form" role="search" action="<?php echo esc_url(home_url('/')); ?>" method="get">
-        <input type="search" name="s" class="news-srch-input" placeholder="SEARCH..." autocomplete="off">
-        <button type="submit" class="news-srch-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
-          SEARCH
-        </button>
-      </form>
+<header class="pb-header">
+  <div class="toolbar">
+    <nav class="date-nav" id="newsDateNav"></nav>
+    <div class="cols" id="newsColSwitch">
+      <button data-cols="1">1</button>
+      <button data-cols="2">2</button>
+      <button data-cols="3">3</button>
+      <button data-cols="4">4</button>
     </div>
-
-    <div class="news-block">
-      <p class="news-block-label">Information Sites</p>
-      <div class="news-sites">
-        <div class="news-site">
-          <a href="https://prtimes.jp" target="_blank" rel="noopener noreferrer">
-            <span class="news-site-name">PR TIMES</span>
-            <span class="news-site-url">prtimes.jp</span>
-          </a>
-        </div>
-        <div class="news-site">
-          <a href="https://atpress.ne.jp" target="_blank" rel="noopener noreferrer">
-            <span class="news-site-name">@Press</span>
-            <span class="news-site-url">atpress.ne.jp</span>
-          </a>
-        </div>
-        <div class="news-site">
-          <a href="https://fashion-press.net" target="_blank" rel="noopener noreferrer">
-            <span class="news-site-name">Fashion Press</span>
-            <span class="news-site-url">fashion-press.net</span>
-          </a>
-        </div>
-        <div class="news-site">
-          <a href="https://fashionsnap.com" target="_blank" rel="noopener noreferrer">
-            <span class="news-site-name">FASHIONSNAP</span>
-            <span class="news-site-url">fashionsnap.com</span>
-          </a>
-        </div>
-        <div class="news-site">
-          <a href="https://hypebeast.com/jp" target="_blank" rel="noopener noreferrer">
-            <span class="news-site-name">HYPEBEAST Japan</span>
-            <span class="news-site-url">hypebeast.com/jp</span>
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <div class="news-block news-img-area">
-      <div class="news-img-wrap" id="newsImgWrap">
-        <span class="news-img-placeholder">NO IMAGE</span>
-      </div>
-    </div>
-
   </div>
+  <nav class="category-nav" id="newsCategoryNav"></nav>
+  <div class="status-banner" id="newsStatusBanner" hidden></div>
+</header>
+
+<main>
+  <div class="grid cols-4" id="newsGrid"></div>
+  <div class="empty" id="newsEmptyState" hidden>この日のニュース候補はまだありません</div>
+</main>
 </section>
 
 <section id="view-board">
@@ -1005,6 +946,7 @@
   <div class="grid cols-4" id="grid"></div>
   <div class="empty" id="emptyState" hidden>この日の候補はまだありません</div>
 </main>
+</section>
 
 <div class="overlay" id="overlay">
   <div class="sheet" id="sheet">
@@ -1012,7 +954,6 @@
     <div id="sheetContent"></div>
   </div>
 </div>
-</section>
 
 <section id="view-studio" hidden>
   <nav class="studio-tab-nav" id="studioTabNav">
@@ -1456,6 +1397,347 @@ if (file_exists($cfg)) echo file_get_contents($cfg);
 
   init();
 
+  // ═══════════════════════════════════════════════
+  //  NEWS BOARD
+  //  Products Board と同じ構造。NEWS_POOL から取得し、
+  //  SELECT 後にプレスリリースの画像を選んで Drive に保存する。
+  // ═══════════════════════════════════════════════
+
+  var NEWS_CATEGORIES = ['ALL', 'FASHION', 'BEAUTY', 'LIFESTYLE', 'WELLBEING', 'INTERIOR', 'TREND'];
+  var NEWS_CATEGORY_LABELS = {
+    ALL: 'ALL',
+    FASHION: 'Fashion',
+    BEAUTY: 'Beauty',
+    LIFESTYLE: 'Lifestyle',
+    WELLBEING: 'Wellbeing',
+    INTERIOR: 'Interior',
+    TREND: 'Trend'
+  };
+
+  var newsState = {
+    dates: [],
+    currentDate: null,
+    items: [],
+    category: 'ALL',
+    columns: parseInt(localStorage.getItem('nb_columns') || '4', 10),
+    loaded: false
+  };
+
+  var newsGrid        = document.getElementById('newsGrid');
+  var newsDateNav     = document.getElementById('newsDateNav');
+  var newsCategoryNav = document.getElementById('newsCategoryNav');
+  var newsEmptyState  = document.getElementById('newsEmptyState');
+  var newsStatusBanner = document.getElementById('newsStatusBanner');
+
+  function fetchNewsDates(){
+    return fetch(apiUrl({ action: 'newsDates' })).then(function(r){ return r.json(); });
+  }
+  function fetchNewsList(date){
+    return fetch(apiUrl({ action: 'newsList', date: date })).then(function(r){ return r.json(); });
+  }
+  function postNewsAction(n, status){
+    return postJson({
+      action: 'updateNewsStatus',
+      news_id: n.news_id,
+      status: status
+    }).then(function(result){
+      n.status = status;
+      if (status === 'SELECTED') n.selected_date = new Date().toISOString().slice(0, 10);
+      return result;
+    });
+  }
+  function fetchNewsImages(n){
+    return postJson({
+      action: 'fetchNewsImages',
+      news_id: n.news_id,
+      source_url: n.source_url || ''
+    });
+  }
+  function saveNewsImages(n, urls){
+    return postJson({
+      action: 'saveNewsImages',
+      news_id: n.news_id,
+      news_date: n.news_date || n.collected_date || '',
+      title: n.title || '',
+      image_urls: urls.join('\n')
+    });
+  }
+
+  function renderNewsDateNav(){
+    newsDateNav.innerHTML = '';
+    newsState.dates.forEach(function(d){
+      var btn = document.createElement('button');
+      btn.textContent = formatDateLabel(d);
+      if (d === newsState.currentDate) btn.classList.add('active');
+      btn.addEventListener('click', function(){
+        newsState.currentDate = d;
+        loadNewsItems();
+      });
+      newsDateNav.appendChild(btn);
+    });
+  }
+
+  function renderNewsCategoryNav(){
+    newsCategoryNav.innerHTML = '';
+    NEWS_CATEGORIES.forEach(function(c){
+      var btn = document.createElement('button');
+      btn.textContent = NEWS_CATEGORY_LABELS[c] || c;
+      if (c === newsState.category) btn.classList.add('active');
+      btn.addEventListener('click', function(){
+        newsState.category = c;
+        renderNewsCategoryNav();
+        renderNewsGrid();
+      });
+      newsCategoryNav.appendChild(btn);
+    });
+  }
+
+  function renderNewsColSwitch(){
+    document.querySelectorAll('#newsColSwitch button').forEach(function(b){
+      b.classList.toggle('active', parseInt(b.dataset.cols, 10) === newsState.columns);
+    });
+    newsGrid.className = 'grid cols-' + newsState.columns;
+  }
+
+  function renderNewsGrid(){
+    newsGrid.innerHTML = '';
+    var visible = newsState.items.filter(function(n){
+      if (n.status === 'REJECTED' || n.status === 'DUPLICATE') return false;
+      if (newsState.category !== 'ALL' && n.category !== newsState.category) return false;
+      return true;
+    });
+    newsEmptyState.hidden = visible.length > 0;
+    visible.forEach(function(n){
+      var card = document.createElement('div');
+      card.className = 'card' + (n.status === 'SELECTED' ? ' is-decided' : '');
+
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      if (n.image_url) {
+        var img = document.createElement('img');
+        img.src = n.image_url;
+        img.alt = n.title || '';
+        img.loading = 'lazy';
+        thumb.appendChild(img);
+      } else {
+        var noimg = document.createElement('div');
+        noimg.className = 'noimg';
+        noimg.textContent = 'NO IMAGE';
+        thumb.appendChild(noimg);
+      }
+
+      var meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.innerHTML =
+        '<div class="brand">' + escapeHtml(n.source_name || '') + '</div>' +
+        '<div class="name">' + escapeHtml(n.title || '') + '</div>' +
+        '<div class="price">' + escapeHtml(n.news_date || '') + '</div>';
+
+      card.appendChild(thumb);
+      card.appendChild(meta);
+      card.addEventListener('click', function(){ openNewsDetail(n); });
+      newsGrid.appendChild(card);
+    });
+  }
+
+  function openNewsDetail(n){
+    sheetContent.innerHTML =
+      '<div class="detail-img">' +
+        (n.image_url ? '<img src="' + escapeHtml(n.image_url) + '" alt="">' : '<div class="noimg">NO IMAGE</div>') +
+      '</div>' +
+      '<div class="detail-body">' +
+        '<div class="brand">' + escapeHtml(n.source_name || '') + '</div>' +
+        '<div class="name">' + escapeHtml(n.title || '') + '</div>' +
+        '<div class="price">' + escapeHtml(n.news_date || '') + '</div>' +
+        field('カテゴリー', n.category) +
+        field('キーワード', n.keywords) +
+        field('記事URL', n.source_url, true) +
+        field('配信元', n.source_name) +
+        field('掲載日', n.news_date) +
+        field('収集日', n.collected_date) +
+        field('ステータス', n.status) +
+        (n.summary ? '<div class="ai-reason"><span class="k">概要</span>' + escapeHtml(n.summary) + '</div>' : '') +
+        (n.ai_reason ? '<div class="ai-reason"><span class="k">AIの選定理由</span>' + escapeHtml(n.ai_reason) + '</div>' : '') +
+        '<div class="actions">' +
+          '<button class="select" data-action="SELECTED">SELECT</button>' +
+          '<button class="hold" data-action="REVIEW">HOLD</button>' +
+          '<button class="reject" data-action="REJECTED">REJECT</button>' +
+        '</div>' +
+        '<div class="current-status">現在のステータス: <span id="newsCurStatus">' + escapeHtml(n.status || '') + '</span></div>' +
+        '<div id="newsImagePicker"></div>' +
+      '</div>';
+
+    sheetContent.querySelectorAll('.actions button').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var status = btn.dataset.action;
+        sheetContent.querySelectorAll('.actions button').forEach(function(b){ b.disabled = true; });
+        postNewsAction(n, status).then(function(){
+          document.getElementById('newsCurStatus').textContent = status;
+          renderNewsGrid();
+          if (status === 'SELECTED') {
+            // SELECT のときだけ画像ピッカーへ進む。パネルは閉じない。
+            sheetContent.querySelectorAll('.actions button').forEach(function(b){ b.disabled = false; });
+            startNewsImagePicker(n);
+          } else {
+            setTimeout(closeDetail, 350);
+          }
+        }).catch(function(err){
+          alert('更新に失敗しました: ' + err);
+          sheetContent.querySelectorAll('.actions button').forEach(function(b){ b.disabled = false; });
+        });
+      });
+    });
+
+    // すでに SELECTED のものを開いたら、そのまま画像ピッカーを出す
+    if (n.status === 'SELECTED') startNewsImagePicker(n);
+
+    overlay.classList.add('open');
+  }
+
+  function startNewsImagePicker(n){
+    var box = document.getElementById('newsImagePicker');
+    if (!box) return;
+    box.innerHTML =
+      '<div class="ni-section">' +
+        '<div class="ni-head">Press Images</div>' +
+        '<div class="ni-loading" id="niLoading">プレスリリースから画像を取得中...</div>' +
+      '</div>';
+
+    if (!LIVE) {
+      document.getElementById('niLoading').textContent = 'config.js にAPI設定が必要です';
+      return;
+    }
+
+    fetchNewsImages(n).then(function(res){
+      if (!res || res.ok === false) {
+        document.getElementById('niLoading').textContent = '画像の取得に失敗しました: ' + ((res && res.error) || '不明');
+        return;
+      }
+      renderNewsImagePicker(n, res.images || []);
+    }).catch(function(){
+      var el = document.getElementById('niLoading');
+      if (el) el.textContent = '通信エラー';
+    });
+  }
+
+  function renderNewsImagePicker(n, images){
+    var box = document.getElementById('newsImagePicker');
+    if (!box) return;
+
+    if (!images.length) {
+      box.innerHTML =
+        '<div class="ni-section">' +
+          '<div class="ni-head">Press Images</div>' +
+          '<div class="ni-loading">この記事から画像が見つかりませんでした</div>' +
+        '</div>';
+      return;
+    }
+
+    var items = images.map(function(url, i){
+      return '<label class="ni-item" data-url="' + escapeAttr(url) + '">' +
+               '<input type="checkbox" data-i="' + i + '">' +
+               '<div class="ni-thumb"><img src="' + escapeAttr(url) + '" alt="" loading="lazy"></div>' +
+             '</label>';
+    }).join('');
+
+    box.innerHTML =
+      '<div class="ni-section">' +
+        '<div class="ni-head">Press Images</div>' +
+        '<div class="ni-sub">Googleドライブに保存する画像を選んでください。チェックしたものだけが保存されます。</div>' +
+        '<div class="ni-grid" id="niGrid">' + items + '</div>' +
+        '<div class="ni-actions">' +
+          '<button class="ni-save-btn" id="niSave" disabled>ドライブに保存</button>' +
+          '<span class="ni-count" id="niCount">0枚選択中</span>' +
+          '<span class="ni-result" id="niResult"></span>' +
+        '</div>' +
+      '</div>';
+
+    var gridEl  = document.getElementById('niGrid');
+    var saveBtn = document.getElementById('niSave');
+    var countEl = document.getElementById('niCount');
+
+    function selectedUrls(){
+      return Array.prototype.slice.call(gridEl.querySelectorAll('.ni-item'))
+        .filter(function(el){ return el.querySelector('input').checked; })
+        .map(function(el){ return el.dataset.url; });
+    }
+
+    gridEl.addEventListener('change', function(e){
+      var input = e.target.closest('input[type="checkbox"]');
+      if (!input) return;
+      input.closest('.ni-item').classList.toggle('checked', input.checked);
+      var count = selectedUrls().length;
+      countEl.textContent = count + '枚選択中';
+      saveBtn.disabled = count === 0;
+    });
+
+    saveBtn.addEventListener('click', function(){
+      var urls = selectedUrls();
+      if (!urls.length) return;
+      var result = document.getElementById('niResult');
+      saveBtn.disabled = true;
+      result.textContent = '保存中...';
+      saveNewsImages(n, urls).then(function(res){
+        if (res && res.ok) {
+          result.textContent = res.saved + '枚をドライブに保存しました';
+          n.image_saved = true;
+          renderNewsGrid();
+        } else {
+          saveBtn.disabled = false;
+          result.textContent = 'エラー: ' + ((res && res.error) || '不明');
+        }
+      }).catch(function(){
+        saveBtn.disabled = false;
+        result.textContent = '通信エラー';
+      });
+    });
+  }
+
+  document.getElementById('newsColSwitch').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    newsState.columns = parseInt(btn.dataset.cols, 10);
+    localStorage.setItem('nb_columns', newsState.columns);
+    renderNewsColSwitch();
+  });
+
+  function loadNewsItems(){
+    renderNewsDateNav();
+    fetchNewsList(newsState.currentDate).then(function(rows){
+      newsState.items = rows || [];
+      renderNewsGrid();
+    }).catch(function(){
+      newsState.items = [];
+      renderNewsGrid();
+    });
+  }
+
+  function initNewsBoard(){
+    if (newsState.loaded) return;
+    newsState.loaded = true;
+    renderNewsColSwitch();
+    renderNewsCategoryNav();
+
+    if (!LIVE) {
+      newsStatusBanner.hidden = false;
+      newsStatusBanner.textContent = 'config.js に Apps Script の URL を設定すると実データに接続されます';
+      newsEmptyState.hidden = false;
+      return;
+    }
+
+    fetchNewsDates().then(function(dates){
+      newsState.dates = dates || [];
+      newsState.currentDate = newsState.dates[0] || null;
+      if (!newsState.currentDate) {
+        newsEmptyState.hidden = false;
+        return;
+      }
+      loadNewsItems();
+    }).catch(function(){
+      newsEmptyState.hidden = false;
+    });
+  }
+
   // ===== App-level view switching =====
   var views = {
     board: document.getElementById('view-board'),
@@ -1472,6 +1754,7 @@ if (file_exists($cfg)) echo file_get_contents($cfg);
     var view = btn.dataset.view;
     document.querySelectorAll('#appNav button').forEach(function(b){ b.classList.toggle('active', b === btn); });
     Object.keys(views).forEach(function(k){ views[k].hidden = (k !== view); });
+    if (view === 'news') { initNewsBoard(); }
     if (view === 'studio' && !studioLoaded) { studioLoaded = true; loadPlanCandidates(); }
     if (view === 'studio') { updateStudioBadge(); }
     if (view === 'publish') { loadPublishQueue(); }
