@@ -44,12 +44,12 @@ var NC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 
 // ─────────────────────────────────────────────────────────────
 
 function onOpenNewsCollector() {
-  SpreadsheetApp.getActiveSpreadsheet().addMenu('ニュース収集', [
-    { name: '▶ ニュースを収集（画像付き）',     functionName: 'collectNews' },
-    { name: '▶ 収集数診断（画像チェックなし）', functionName: 'ncDebugBulkCollect' },
-    { name: '▶ 画像URLだけ補完（既存記事）',   functionName: 'ncFillMissingImages' },
-    { name: '▶ Google News行を削除（お掃除）', functionName: 'ncClearGoogleNewsRows' },
-    { name: '▶ 接続診断',                      functionName: 'ncDiagnose' },
+  SpreadsheetApp.getActiveSpreadsheet().addMenu('News Collect', [
+    { name: '▶ Collect News (with images)',        functionName: 'collectNews' },
+    { name: '▶ Debug Collection (no image check)', functionName: 'ncDebugBulkCollect' },
+    { name: '▶ Fill Missing Images',               functionName: 'ncFillMissingImages' },
+    { name: '▶ Remove Google News Rows',           functionName: 'ncClearGoogleNewsRows' },
+    { name: '▶ Diagnose Connection',               functionName: 'ncDiagnose' },
   ]);
 }
 
