@@ -727,6 +727,33 @@ function ncFetchOgImage(url) {
   return ncResolveArticle(url).image;
 }
 
+/** Google News CBMi URL の行を全削除する（実記事URLに差し替えられないため） */
+function ncClearGoogleNewsRows() {
+  var props   = PropertiesService.getScriptProperties();
+  var pool    = ncLoadPool(props.getProperty('NEWS_POOL_ID')  || NC_POOL_ID,
+                           props.getProperty('NEWS_POOL_TAB') || NC_POOL_TAB);
+  var sheet   = pool.sheet;
+  var urlIdx  = pool.header.indexOf('source_url');
+  if (urlIdx < 0) { Logger.log('source_url 列がありません'); return; }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  var urls    = sheet.getRange(2, urlIdx + 1, lastRow - 1, 1).getValues();
+  var deleted = 0;
+  // 下から削除しないと行番号がずれる
+  for (var i = urls.length - 1; i >= 0; i--) {
+    if (String(urls[i][0]).indexOf('news.google.com') !== -1) {
+      sheet.deleteRow(i + 2);
+      deleted++;
+    }
+  }
+
+  var msg = 'Google News行を削除: ' + deleted + '件';
+  Logger.log(msg);
+  try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
+}
+
 // ─────────────────────────────────────────────────────────────
 // デバッグ用：実際のHTMLを確認する
 // ─────────────────────────────────────────────────────────────
