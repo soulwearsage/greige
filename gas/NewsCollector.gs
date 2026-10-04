@@ -249,7 +249,7 @@ function ncFetchGNewsRSS(rssUrl, defaultSource) {
     var linkM  = block.match(/<link>([\s\S]*?)<\/link>/i);
     var gnLink = linkM ? linkM[1].trim() : '';
 
-    var link = ncDecodeGNewsUrl(gnLink) || gnLink;
+    var link = gnLink;
     if (!link) continue;
 
     // <pubDate>
@@ -283,40 +283,6 @@ function ncParsePubDate(pubDate) {
   } catch(e) { return ''; }
 }
 
-/**
- * Google News URL (CBMi...) を base64 デコードして元記事URLを取り出す。
- * デコード失敗時は元のGoogle News URLを返す。
- */
-function ncDecodeGNewsUrl(gnUrl) {
-  if (!gnUrl || gnUrl.indexOf('news.google.com') === -1) return gnUrl;
-  try {
-    var m = gnUrl.match(/\/articles\/([A-Za-z0-9_\-]+)/);
-    if (!m) return gnUrl;
-
-    // URL-safe base64 → standard base64 → バイト列
-    var b64 = m[1].replace(/-/g, '+').replace(/_/g, '/');
-    while (b64.length % 4 !== 0) b64 += '=';
-    var bytes = Utilities.base64Decode(b64);
-
-    // バイト列を文字列に変換して "http" を探す
-    var chars = [];
-    for (var i = 0; i < bytes.length; i++) {
-      chars.push(String.fromCharCode(bytes[i] < 0 ? bytes[i] + 256 : bytes[i]));
-    }
-    var str = chars.join('');
-
-    var idx = str.indexOf('http');
-    if (idx < 0) return gnUrl;
-
-    var urlPart = str.slice(idx);
-    // 制御文字・スペース手前で切り取る
-    var endM = urlPart.match(/^(https?:\/\/[^\x00-\x1f\x7f\s]+)/);
-    if (endM && endM[1].length > 15) return endM[1];
-  } catch(e) {
-    Logger.log('GNews URL decode: ' + e.message);
-  }
-  return gnUrl;
-}
 
 // ─────────────────────────────────────────────────────────────
 // atpress.ne.jp 検索
