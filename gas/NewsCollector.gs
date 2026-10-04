@@ -110,6 +110,12 @@ function ncCollect(dryRun) {
     (errors.length ? 'エラー(' + errors.length + '):\n' + errors.slice(0, 5).join('\n') : '');
   Logger.log(msg);
   try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
+
+  // 収集後に画像URLを自動補完（ドライランは除く）
+  if (!dryRun && saved > 0) {
+    Logger.log('画像URL補完を開始します...');
+    ncFillMissingImages();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
