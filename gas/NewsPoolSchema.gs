@@ -13,7 +13,7 @@
  *   2.「列を同期（追加のみ）」を実行
  */
 
-var NP_DEFAULT_SPREADSHEET_ID = '1C4ljnBvsJmGzQe6aaWbdIUj4mXYjl7Mk3bPhdQfJQWw';
+var NP_DEFAULT_SPREADSHEET_ID = '11e6LwzXi-5_1GyLz35zRV4e0pUPbq63fdB1NwJtWXMI';
 var NP_DEFAULT_TAB_NAME       = 'NEWS_POOL';
 
 var NP_SCHEMA = [

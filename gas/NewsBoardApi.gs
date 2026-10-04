@@ -20,7 +20,7 @@
  *   NEWS_IMAGE_ROOT_FOLDER_ID : 画像を保存するドライブのルートフォルダID（必須）
  */
 
-var NB_DEFAULT_SPREADSHEET_ID = '1C4ljnBvsJmGzQe6aaWbdIUj4mXYjl7Mk3bPhdQfJQWw';
+var NB_DEFAULT_SPREADSHEET_ID = '11e6LwzXi-5_1GyLz35zRV4e0pUPbq63fdB1NwJtWXMI';
 var NB_DEFAULT_POOL_TAB       = 'NEWS_POOL';
 
 // 1記事あたりドライブに保存できる画像の上限
