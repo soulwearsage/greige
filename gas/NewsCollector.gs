@@ -111,14 +111,15 @@ function ncCollect(dryRun) {
       existUrls[art.source_url] = true;
 
       if (!dryRun) {
-        // 画像URLが空なら収集と同時に取得（deadline:8 で最大8秒）
         if (!art.image_url) {
-          art.image_url = ncFetchOgImage(art.source_url);
+          var r = ncResolveArticle(art.source_url);
+          art.source_url = r.url;      // Google News URL → 実記事URL に差し替え
+          art.image_url  = r.image;
         }
         ncAppendRow(sheet, header, art);
       }
       saved++;
-      Logger.log((dryRun ? '[DRY] ' : '') + art.title + ' IMG:' + (art.image_url ? '✓' : '×'));
+      Logger.log((dryRun ? '[DRY] ' : '') + (art.image_url ? '✓' : '×') + ' ' + art.title.slice(0, 40));
     }
     if (saved >= NC_MAX_TOTAL) break;
 
@@ -230,12 +231,76 @@ function ncAppendRow(sheet, header, art) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// prtimes.jp 検索（Google News RSS 経由）
-// prtimes.jp はSPAのため直接スクレイピング不可。
-// Google News RSS で site:prtimes.jp キーワード を検索する。
+// prtimes.jp 検索
+//
+// 経路A（優先）: prtimes.jp 公式RSS。実URLが直接取れるので og:image が確実に取れる。
+//                1回の実行で1度だけ取得してキャッシュし、キーワードで絞り込む。
+// 経路B（代替）: Google News RSS。CBMi URLは暗号化されていて復号できないため、
+//                記事ページを1回開いて実URLを取り出す。
 // ─────────────────────────────────────────────────────────────
 
+// 1実行内で使い回す公式RSSのキャッシュ（null=未取得, []=取得失敗）
+var NC_PR_FEED_CACHE = null;
+
+/** prtimes.jp 公式RSSを1度だけ取得して記事配列にする */
+function ncLoadPrTimesFeed() {
+  if (NC_PR_FEED_CACHE !== null) return NC_PR_FEED_CACHE;
+
+  var feeds = ['https://prtimes.jp/index.rdf', 'https://prtimes.jp/rss/index.rdf'];
+  for (var f = 0; f < feeds.length; f++) {
+    var xml = ncFetch(feeds[f]);
+    if (!xml || xml.indexOf('<item') === -1) continue;
+
+    var items = [];
+    var re = /<item[^>]*>([\s\S]*?)<\/item>/gi;
+    var m;
+    while ((m = re.exec(xml)) !== null) {
+      var b = m[1];
+      var link = ncTagText(b, 'link');
+      if (!link || link.indexOf('prtimes.jp') === -1) continue;
+
+      items.push({
+        title:       ncTagText(b, 'title'),
+        source_url:  link,
+        source_name: 'PR TIMES',
+        news_date:   ncParsePubDate(ncTagText(b, 'dc:date') || ncTagText(b, 'pubDate')),
+        summary:     ncStripTags(ncTagText(b, 'description')).slice(0, 300),
+        image_url:   '',
+      });
+    }
+    if (items.length) {
+      Logger.log('公式RSS取得: ' + items.length + '件 (' + feeds[f] + ')');
+      NC_PR_FEED_CACHE = items;
+      return items;
+    }
+  }
+
+  Logger.log('公式RSS使用不可 → Google News にフォールバック');
+  NC_PR_FEED_CACHE = [];
+  return NC_PR_FEED_CACHE;
+}
+
+/** CDATA対応でタグの中身を取り出す */
+function ncTagText(block, tag) {
+  var re = new RegExp('<' + tag + '[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/' + tag + '>', 'i');
+  var m  = block.match(re);
+  return m ? m[1].trim() : '';
+}
+
 function ncSearchPrTimes(keyword) {
+  // 経路A: 公式RSSをキーワードで絞り込む
+  var feed = ncLoadPrTimesFeed();
+  if (feed.length) {
+    var hit = [];
+    var kw  = keyword.toLowerCase();
+    for (var i = 0; i < feed.length && hit.length < NC_MAX_PER_KEYWORD; i++) {
+      var a = feed[i];
+      if ((a.title + ' ' + a.summary).toLowerCase().indexOf(kw) !== -1) hit.push(a);
+    }
+    if (hit.length) return hit;
+  }
+
+  // 経路B: Google News RSS
   var url = 'https://news.google.com/rss/search?q=' +
             encodeURIComponent('site:prtimes.jp ' + keyword) +
             '&hl=ja&gl=JP&ceid=JP:ja';
@@ -548,24 +613,61 @@ function ncFillMissingImages() {
   Logger.log('画像URL更新: ' + updated + '件');
 }
 
-/** URLを取得して og:image を返す。リダイレクト自動追従。 */
-function ncFetchOgImage(url) {
+var NC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+            '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+function ncGetHtml(url) {
   try {
     var res = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
       followRedirects: true,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
-      deadline: 8,  // 8秒でタイムアウト（30記事×8s = 240s < 6分制限）
+      headers: { 'User-Agent': NC_UA },
+      deadline: 8,
     });
     if (res.getResponseCode() !== 200) return '';
-    var html = res.getContentText('UTF-8');
-    // property="og:image" content="..." の両パターン
-    var m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
-    if (!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    return m ? m[1] : '';
+    return res.getContentText('UTF-8');
   } catch(e) {
     return '';
   }
+}
+
+function ncPickOgImage(html) {
+  if (!html) return '';
+  var m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  if (!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  var img = m ? m[1] : '';
+  // Google 自身のロゴ画像は記事画像ではないので捨てる
+  if (/gstatic\.com|google\.com\/.*logo|news\.google\.com/i.test(img)) return '';
+  return img;
+}
+
+/**
+ * 記事URLを実URLに解決し、og:image も取得する。
+ * Google News URL の場合は記事ページHTMLから実URLを拾い直す。
+ * @return {{url:string, image:string}}
+ */
+function ncResolveArticle(url) {
+  var html = ncGetHtml(url);
+  var img  = ncPickOgImage(html);
+  if (img) return { url: url, image: img };
+
+  // 画像が取れない＝Google Newsの中継ページの可能性。実URLを探す。
+  if (html) {
+    var hits = html.match(/https?:\/\/(?:www\.)?(?:prtimes\.jp|atpress\.ne\.jp)\/[^"'\s<\\]+/i);
+    if (hits && hits[0] !== url) {
+      var real = hits[0].replace(/&amp;/g, '&');
+      var h2   = ncGetHtml(real);
+      var i2   = ncPickOgImage(h2);
+      if (i2) return { url: real, image: i2 };
+      return { url: real, image: '' };
+    }
+  }
+  return { url: url, image: '' };
+}
+
+/** 後方互換: og:image だけ欲しいとき */
+function ncFetchOgImage(url) {
+  return ncResolveArticle(url).image;
 }
 
 // ─────────────────────────────────────────────────────────────
