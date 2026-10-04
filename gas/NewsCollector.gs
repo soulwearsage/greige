@@ -56,15 +56,12 @@ function onOpenNewsCollector() {
 function collectNewsDryRun() { ncCollect(true); }
 function collectNews()       { ncCollect(false); }
 
-/** キーワード全件をカバーするまでバッチを進めながら収集する（1ボタンで全部完了） */
+/** 両サイト新着を一括取得しキーワード照合（1ボタンで完了） */
 function collectNewsLooped() {
-  // 前回の続きから始めるため、オフセットをリセットしてから全キーワードをカバー
-  PropertiesService.getScriptProperties().deleteProperty('NC_KW_OFFSET');
   for (var i = 0; i < NC_COLLECT_LOOPS; i++) {
     Logger.log('=== ループ ' + (i + 1) + ' / ' + NC_COLLECT_LOOPS + ' ===');
     ncCollect(false);
   }
-  PropertiesService.getScriptProperties().deleteProperty('NC_KW_OFFSET');
   Logger.log('全ループ完了');
 }
 
@@ -82,51 +79,38 @@ function ncCollect(dryRun) {
   var sheet     = pool.sheet;
   var header    = pool.header;
 
-  // キーワードごとに PR TIMES と AT PRESS を直接検索する
-  // オフセットを使って毎回異なるキーワードバッチを処理する
-  var offset = parseInt(props.getProperty('NC_KW_OFFSET') || '0', 10);
-  if (isNaN(offset) || offset >= keywords.length) offset = 0;
+  // ① 両サイトから新着記事を一括取得
+  NC_PR_FEED_CACHE = null;
+  var prFeed = ncLoadPrTimesFeed();
+  var apFeed = ncLoadAtPressFeed();
+  Logger.log('PR TIMES: ' + prFeed.length + '件 / AT PRESS: ' + apFeed.length + '件');
 
-  var queue = [];
+  // ② 合算して重複除去
+  var allArticles = [];
   var seenUrls = {};
-  var processed = 0;
-
-  for (var k = offset; processed < NC_MAX_KEYWORDS && k < keywords.length; k++, processed++) {
-    if (new Date().getTime() - t0 > NC_TIME_BUDGET_MS * 0.4) break;
-    var kwObj = keywords[k];
-    var kw    = kwObj.keyword;
-
-    // PR TIMES 検索
-    var prResults = ncSearchPrTimes(kw);
-    for (var p = 0; p < prResults.length; p++) {
-      var a = prResults[p];
-      if (a.source_url && !seenUrls[a.source_url]) {
-        a._kw = kwObj;
-        seenUrls[a.source_url] = true;
-        queue.push(a);
-      }
+  var combined = prFeed.concat(apFeed);
+  for (var i = 0; i < combined.length; i++) {
+    var a = combined[i];
+    if (a.source_url && !seenUrls[a.source_url]) {
+      seenUrls[a.source_url] = true;
+      allArticles.push(a);
     }
-
-    // AT PRESS 検索
-    var apResults = ncSearchAtPress(kw);
-    for (var ap = 0; ap < apResults.length; ap++) {
-      var b = apResults[ap];
-      if (b.source_url && !seenUrls[b.source_url]) {
-        b._kw = kwObj;
-        seenUrls[b.source_url] = true;
-        queue.push(b);
-      }
-    }
-
-    Logger.log('キーワード「' + kw + '」: PR TIMES ' + prResults.length + '件 / AT PRESS ' + apResults.length + '件');
   }
+  Logger.log('合算（重複除去後）: ' + allArticles.length + '件');
 
-  // 次回は続きのキーワードから始める（全件処理したら先頭に戻る）
-  var nextOffset = offset + processed;
-  if (nextOffset >= keywords.length) nextOffset = 0;
-  props.setProperty('NC_KW_OFFSET', String(nextOffset));
-
-  Logger.log('検索完了: 候補 ' + queue.length + '件 / キーワード ' + processed + '個 (offset ' + offset + '→' + nextOffset + ')');
+  // ③ NEWS_KEYWORDS全件で照合
+  var queue = [];
+  for (var j = 0; j < allArticles.length; j++) {
+    var art = allArticles[j];
+    var hay = (art.title + ' ' + art.summary).toLowerCase();
+    var hit = null;
+    for (var k = 0; k < keywords.length; k++) {
+      var kwText = String(keywords[k].keyword || '').toLowerCase();
+      if (kwText && hay.indexOf(kwText) !== -1) { hit = keywords[k]; break; }
+    }
+    if (hit) { art._kw = hit; queue.push(art); }
+  }
+  Logger.log('キーワード一致: ' + queue.length + '件 / キーワード数: ' + keywords.length);
 
   var saved = 0, noImage = 0, dup = 0, timeUp = false;
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
@@ -332,6 +316,54 @@ function ncLoadPrTimesFeed() {
 }
 
 /** CDATA対応でタグの中身を取り出す */
+function ncLoadAtPressFeed() {
+  var url  = 'https://www.atpress.ne.jp/?sort=date';
+  var html = ncFetch(url);
+  if (!html) { Logger.log('AT PRESS 一覧取得失敗'); return []; }
+
+  var articles = [];
+  var seen     = {};
+
+  // /releases/数字 のリンクを全て抽出
+  var re = /href="(\/releases\/(\d+)[^"]*)"/gi;
+  var m;
+  while ((m = re.exec(html)) !== null) {
+    var path   = m[1].split('?')[0].split('#')[0];
+    var fullUrl = 'https://www.atpress.ne.jp' + path;
+    if (seen[fullUrl]) continue;
+    seen[fullUrl] = true;
+
+    // リンク周辺のブロックからタイトルと日付を抽出
+    var pos   = m.index;
+    var block = html.slice(Math.max(0, pos - 600), pos + 600);
+
+    // タイトル
+    var titleM = block.match(/class="[^"]*(?:title|heading|name)[^"]*"[^>]*>([\s\S]*?)<\/(?:h[1-6]|p|span|a|div)/i);
+    var title  = titleM ? ncStripTags(titleM[1]).trim() : '';
+    if (!title) {
+      var aM = block.match(/<a[^>]+href="[^"]*releases\/\d+[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
+      title  = aM ? ncStripTags(aM[1]).trim() : '';
+    }
+    if (!title || title.length < 3) continue;
+
+    // 日付
+    var dateM = block.match(/(\d{4}[-\/\.]\d{2}[-\/\.]\d{2})/);
+    var newsDate = dateM ? dateM[1].replace(/[\/\.]/g, '-') : '';
+
+    articles.push({
+      title:       title,
+      source_url:  fullUrl,
+      source_name: 'AT PRESS',
+      news_date:   newsDate,
+      summary:     '',
+      image_url:   '',
+    });
+  }
+
+  Logger.log('AT PRESS 一覧取得: ' + articles.length + '件');
+  return articles;
+}
+
 function ncTagText(block, tag) {
   var re = new RegExp('<' + tag + '[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/' + tag + '>', 'i');
   var m  = block.match(re);
