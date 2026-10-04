@@ -21,6 +21,8 @@ var NC_POOL_TAB    = 'NEWS_POOL';
 var NC_MAX_PER_KEYWORD = 5;
 // 1回の実行で処理するキーワード数の上限（タイムアウト対策）
 var NC_MAX_KEYWORDS = 20;
+// 1回の実行で収集する記事の合計上限（画像補完と合わせて6分以内に収める）
+var NC_MAX_TOTAL = 30;
 
 // ─────────────────────────────────────────────────────────────
 // メニュー
@@ -80,6 +82,8 @@ function ncCollect(dryRun) {
     }
 
     for (var j = 0; j < articles.length; j++) {
+      if (saved >= NC_MAX_TOTAL) break;
+
       var art = articles[j];
       if (!art.source_url || existUrls[art.source_url]) continue;
 
@@ -100,6 +104,7 @@ function ncCollect(dryRun) {
       saved++;
       Logger.log((dryRun ? '[DRY] ' : '') + art.title + ' / ' + art.source_url);
     }
+    if (saved >= NC_MAX_TOTAL) break;
 
     Utilities.sleep(500);
   }
@@ -460,7 +465,7 @@ function ncGenId() {
 //   1回の実行で最大 NC_IMAGE_FILL_MAX 件処理（タイムアウト対策）。
 // ─────────────────────────────────────────────────────────────
 
-var NC_IMAGE_FILL_MAX = 30;
+var NC_IMAGE_FILL_MAX = NC_MAX_TOTAL;
 
 function ncFillMissingImages() {
   var props   = PropertiesService.getScriptProperties();
