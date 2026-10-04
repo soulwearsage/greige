@@ -21,8 +21,10 @@ var NC_POOL_TAB    = 'NEWS_POOL';
 var NC_MAX_PER_KEYWORD = 5;
 // 1回の実行で処理するキーワード数の上限（タイムアウト対策）
 var NC_MAX_KEYWORDS = 20;
-// 1回の実行で収集する記事の合計上限（画像補完と合わせて6分以内に収める）
+// 1回のループで収集する記事の合計上限
 var NC_MAX_TOTAL = 30;
+// collectNewsLooped() が繰り返す回数
+var NC_COLLECT_LOOPS = 5;
 
 // ─────────────────────────────────────────────────────────────
 // メニュー
@@ -30,7 +32,8 @@ var NC_MAX_TOTAL = 30;
 
 function onOpenNewsCollector() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu('ニュース収集', [
-    { name: '▶ ニュースを収集', functionName: 'collectNews' },
+    { name: '▶ ニュースを収集（30件×5回）', functionName: 'collectNewsLooped' },
+    { name: '▶ ニュースを収集（30件1回のみ）', functionName: 'collectNews' },
     { name: '▶ ドライラン（取得のみ・保存しない）', functionName: 'collectNewsDryRun' },
   ]);
 }
@@ -41,6 +44,15 @@ function onOpenNewsCollector() {
 
 function collectNewsDryRun() { ncCollect(true); }
 function collectNews()       { ncCollect(false); }
+
+/** 30件収集＋画像補完 を NC_COLLECT_LOOPS 回繰り返す（1ボタンで全部完了） */
+function collectNewsLooped() {
+  for (var i = 0; i < NC_COLLECT_LOOPS; i++) {
+    Logger.log('=== ループ ' + (i + 1) + ' / ' + NC_COLLECT_LOOPS + ' ===');
+    ncCollect(false);
+  }
+  Logger.log('全ループ完了');
+}
 
 function ncCollect(dryRun) {
   var props   = PropertiesService.getScriptProperties();
@@ -505,7 +517,7 @@ function ncFillMissingImages() {
     } else {
       Logger.log('画像なし: ' + sourceUrl.slice(0, 80));
     }
-    Utilities.sleep(400);
+    Utilities.sleep(200);
   }
 
   Logger.log('画像URL更新: ' + updated + '件');
