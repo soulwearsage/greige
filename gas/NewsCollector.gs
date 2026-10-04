@@ -106,29 +106,6 @@ function ncCollect(dryRun) {
   }
   Logger.log('RSS照合ヒット: ' + queue.length + '件');
 
-  // ③ BRAND・PERSONキーワードはPR TIMES検索ページで直接取得
-  //    （英語ブランド名が日本語RSSタイトルにマッチしないため）
-  if (new Date().getTime() - t0 < NC_TIME_BUDGET_MS * 0.5) {
-    var brandKws = keywords.filter(function(kw) {
-      return kw.type === 'BRAND' || kw.type === 'PERSON';
-    });
-    var kwLimit = Math.min(brandKws.length, NC_MAX_KEYWORDS);
-    for (var b = 0; b < kwLimit; b++) {
-      if (new Date().getTime() - t0 > NC_TIME_BUDGET_MS * 0.6) break;
-      var kwObj = brandKws[b];
-      var results = ncSearchPrTimesPage(kwObj.keyword);
-      for (var r = 0; r < results.length; r++) {
-        var a = results[r];
-        if (a.source_url && !seenUrls[a.source_url]) {
-          a._kw = kwObj;
-          seenUrls[a.source_url] = true;
-          queue.push(a);
-        }
-      }
-    }
-    Logger.log('BRAND/PERSON検索追加後: ' + queue.length + '件');
-  }
-
   var saved = 0, noImage = 0, dup = 0, timeUp = false;
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
   var now   = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
