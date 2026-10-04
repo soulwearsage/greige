@@ -318,7 +318,11 @@ function ncTagText(block, tag) {
 }
 
 function ncSearchPrTimes(keyword) {
-  // 経路A: 公式RSSをキーワードで絞り込む
+  // 経路A: PR TIMES 検索ページをキーワードで直接検索（実URLが得られる）
+  var results = ncSearchPrTimesPage(keyword);
+  if (results.length) return results;
+
+  // 経路B: 公式RSSをキーワードで絞り込む（補助）
   var feed = ncLoadPrTimesFeed();
   if (feed.length) {
     var hit = [];
@@ -330,11 +334,61 @@ function ncSearchPrTimes(keyword) {
     if (hit.length) return hit;
   }
 
-  // 経路B: Google News RSS
-  var url = 'https://news.google.com/rss/search?q=' +
-            encodeURIComponent('site:prtimes.jp ' + keyword) +
-            '&hl=ja&gl=JP&ceid=JP:ja';
-  return ncFetchGNewsRSS(url, 'PR TIMES');
+  return [];
+}
+
+/**
+ * PR TIMES 検索ページを直接スクレイピングしてキーワード検索する。
+ * 実記事URLが得られるので og:image も確実に取れる。
+ */
+function ncSearchPrTimesPage(keyword) {
+  var url = 'https://prtimes.jp/main/action.php?run=html&page=searchkey&search_word=' +
+            encodeURIComponent(keyword);
+  var html = ncFetch(url);
+  if (!html) {
+    Logger.log('PR TIMES検索ページ取得失敗: ' + keyword);
+    return [];
+  }
+
+  var articles = [];
+  var seen = {};
+
+  // 記事URLパターン: /main/html/rd/p/数字.数字.html
+  var linkRe = /href="(\/main\/html\/rd\/p\/\d+\.\d+\.html)"/gi;
+  var m;
+  while ((m = linkRe.exec(html)) !== null && articles.length < NC_MAX_PER_KEYWORD) {
+    var path    = m[1];
+    var fullUrl = 'https://prtimes.jp' + path;
+    if (seen[fullUrl]) continue;
+    seen[fullUrl] = true;
+
+    // URLの前後からタイトルを探す
+    var pos   = m.index;
+    var block = html.slice(Math.max(0, pos - 500), pos + 500);
+    var titleM = block.match(/class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/(?:h[1-6]|p|a|span|div)/i);
+    var title  = titleM ? ncStripTags(titleM[1]).trim() : '';
+    if (!title) {
+      // aタグのテキストを使う
+      var aM = block.match(/<a[^>]+href="[^"]*rd\/p\/[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
+      title  = aM ? ncStripTags(aM[1]).trim() : '';
+    }
+    if (!title || title.length < 3) continue;
+
+    var dateM = block.match(/(\d{4}[-\/]\d{2}[-\/]\d{2})/);
+    var newsDate = dateM ? dateM[1].replace(/\//g, '-') : '';
+
+    articles.push({
+      title:       title,
+      source_url:  fullUrl,
+      source_name: 'PR TIMES',
+      news_date:   newsDate,
+      summary:     '',
+      image_url:   '',
+    });
+  }
+
+  Logger.log('PR TIMES検索「' + keyword + '」→ ' + articles.length + '件');
+  return articles;
 }
 
 /**
