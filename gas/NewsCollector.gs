@@ -62,7 +62,147 @@ function onOpenNewsCollector() {
     { name: '▶ Fill Missing Images',               functionName: 'ncFillMissingImages' },
     { name: '▶ Remove Google News Rows',           functionName: 'ncClearGoogleNewsRows' },
     { name: '▶ Diagnose Connection',               functionName: 'ncDiagnose' },
+    { name: '── ─ ──',                             functionName: 'ncDiagnose' },
+    { name: '▶ Transfer to SELECTED_NEWS',         functionName: 'ncTransferToSelected' },
+    { name: '▶ Push News to WordPress',            functionName: 'ncPushNewsToWordPress' },
   ]);
+}
+
+// ─────────────────────────────────────────────────────────────
+// SELECTED_NEWS / WordPress
+// ─────────────────────────────────────────────────────────────
+var NC_SELECTED_NEWS_ID  = '1ULM6KFGsNoUWXM2AG9uYkQO7pUFffgg2pOeT4x0Miw8';
+var NC_SELECTED_NEWS_TAB = 'シート1';
+var NC_WP_URL            = 'https://greige.online';
+var NC_WP_USER           = 'AICO';
+// WP_APP_PASS は Script Properties に設定: PropertiesService.getScriptProperties().setProperty('WP_APP_PASS','xxxx xxxx ...')
+
+/**
+ * NEWS_POOL (status=NEW) の記事を SELECTED_NEWS へ転送する。
+ * 重複URLはスキップ。転送後 NEWS_POOL の status を TRANSFERRED に更新。
+ */
+function ncTransferToSelected() {
+  var poolSs    = SpreadsheetApp.openById(NC_POOL_ID);
+  var poolSheet = poolSs.getSheetByName(NC_POOL_TAB);
+  var poolData  = poolSheet.getDataRange().getValues();
+  var poolH = {};
+  poolData[0].forEach(function(h, i) { poolH[String(h).trim()] = i; });
+
+  var selSs    = SpreadsheetApp.openById(NC_SELECTED_NEWS_ID);
+  var selSheet = selSs.getSheetByName(NC_SELECTED_NEWS_TAB);
+  var selHeaders = selSheet.getRange(1, 1, 1, selSheet.getLastColumn()).getValues()[0];
+  var selH = {};
+  selHeaders.forEach(function(h, i) { selH[String(h).trim()] = i; });
+
+  // 重複チェック用：既存URLを取得
+  var existingUrls = {};
+  if (selSheet.getLastRow() > 2) {
+    var col = selH['source_url'] + 1;
+    var existing = selSheet.getRange(3, col, selSheet.getLastRow() - 2, 1).getValues();
+    existing.forEach(function(r) { if (r[0]) existingUrls[String(r[0])] = true; });
+  }
+
+  var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+  var transferred = 0;
+
+  for (var i = 1; i < poolData.length; i++) {
+    var row    = poolData[i];
+    var status = String(row[poolH['status']] || '').trim();
+    var url    = String(row[poolH['source_url']] || '').trim();
+    if (status !== 'NEW' || !url || existingUrls[url]) continue;
+
+    var newRow = new Array(selHeaders.length).fill('');
+    newRow[selH['news_id']]      = String(row[poolH['news_id']] || '');
+    newRow[selH['source_name']]  = String(row[poolH['source_name']] || '');
+    newRow[selH['source_url']]   = url;
+    newRow[selH['source_title']] = String(row[poolH['title']] || '');
+    newRow[selH['source_date']]  = String(row[poolH['news_date']] || '');
+    newRow[selH['source_body']]  = String(row[poolH['summary']] || '');
+    newRow[selH['category']]     = String(row[poolH['category']] || '');
+    newRow[selH['topic']]        = String(row[poolH['matched_keyword']] || '');
+    newRow[selH['image_ids']]    = String(row[poolH['image_url']] || '');
+    newRow[selH['status']]       = 'NEW';
+    newRow[selH['updated_at']]   = now;
+
+    selSheet.appendRow(newRow);
+    existingUrls[url] = true;
+    poolSheet.getRange(i + 1, poolH['status'] + 1).setValue('TRANSFERRED');
+    poolSheet.getRange(i + 1, poolH['selected_date'] + 1).setValue(now);
+    transferred++;
+  }
+
+  Logger.log('SELECTED_NEWS へ転送: ' + transferred + '件');
+  SpreadsheetApp.getActiveSpreadsheet().toast(transferred + '件を SELECTED_NEWS へ転送しました。');
+}
+
+/**
+ * SELECTED_NEWS (status=NEW) の記事を WordPress へ下書き投稿する。
+ * 投稿済み (wordpress_post_id あり) はスキップ。
+ */
+function ncPushNewsToWordPress() {
+  var ss      = SpreadsheetApp.openById(NC_SELECTED_NEWS_ID);
+  var sheet   = ss.getSheetByName(NC_SELECTED_NEWS_TAB);
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var sh = {};
+  headers.forEach(function(h, i) { sh[String(h).trim()] = i; });
+
+  if (sheet.getLastRow() < 3) { Logger.log('SELECTED_NEWS にデータなし'); return; }
+
+  var rows   = sheet.getRange(3, 1, sheet.getLastRow() - 2, sheet.getLastColumn()).getValues();
+  var wpPass = PropertiesService.getScriptProperties().getProperty('WP_APP_PASS') || '';
+  var auth   = Utilities.base64Encode(NC_WP_USER + ':' + wpPass);
+  var pushed = 0;
+
+  rows.forEach(function(row, i) {
+    var rowNum   = i + 3;
+    var wpPostId = String(row[sh['wordpress_post_id']] || '').trim();
+    var status   = String(row[sh['status']] || '').trim();
+    if (wpPostId) return;
+    if (status !== 'NEW' && status !== 'SELECTED') return;
+
+    var title = String(row[sh['source_title']] || '').trim();
+    var body  = String(row[sh['source_body']]  || '').trim();
+    if (!title) return;
+
+    var postData = {
+      title:   title,
+      content: body,
+      status:  'draft',
+      meta: {
+        news_source_url:  String(row[sh['source_url']]   || ''),
+        news_source_name: String(row[sh['source_name']]  || ''),
+        news_image_url:   String(row[sh['image_ids']]    || ''),
+        news_category:    String(row[sh['category']]     || '')
+      }
+    };
+
+    try {
+      var resp = UrlFetchApp.fetch(NC_WP_URL + '/wp-json/wp/v2/posts', {
+        method: 'POST',
+        contentType: 'application/json',
+        headers: { Authorization: 'Basic ' + auth },
+        payload: JSON.stringify(postData),
+        muteHttpExceptions: true
+      });
+      var code = resp.getResponseCode();
+      if (code === 201) {
+        var result = JSON.parse(resp.getContentText());
+        sheet.getRange(rowNum, sh['wordpress_post_id'] + 1).setValue(result.id);
+        sheet.getRange(rowNum, sh['wordpress_url']     + 1).setValue(result.link);
+        sheet.getRange(rowNum, sh['wordpress_status']  + 1).setValue('draft');
+        sheet.getRange(rowNum, sh['status']            + 1).setValue('WP_DRAFT');
+        Logger.log('投稿成功: ' + title + ' (WP ID: ' + result.id + ')');
+        pushed++;
+      } else {
+        Logger.log('投稿失敗 行' + rowNum + ' HTTP ' + code + ': ' + resp.getContentText().slice(0, 300));
+      }
+    } catch(e) {
+      Logger.log('エラー 行' + rowNum + ': ' + e.message);
+    }
+  });
+
+  Logger.log('WordPress 下書き投稿: ' + pushed + '件');
+  SpreadsheetApp.getActiveSpreadsheet().toast(pushed + '件を WordPress に下書き投稿しました。');
 }
 
 /**
