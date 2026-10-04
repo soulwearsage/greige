@@ -36,7 +36,7 @@ function migrateContentMaster() {
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(TAB);
-  if (!sheet) { SpreadsheetApp.getUi().alert('タブが見つかりません: ' + TAB); return; }
+  if (!sheet) { throw new Error('タブが見つかりません: ' + TAB); }
 
   var log = [];
 
@@ -81,8 +81,14 @@ function migrateContentMaster() {
     if (lastRow > 1) {
       var vals = sheet.getRange(2, i + 1, lastRow - 1, 1).getValues();
       var filled = vals.filter(function(r) { return mcNorm_(r[0]) !== ''; }).length;
-      if (filled > 0) {
-        log.push('! ' + name + ' に ' + filled + '件データがあるため削除しませんでした');
+      // 移行先に同じ値が入っていれば、残っているのは移行済みの控えなので消してよい
+      var toIdx = mcFind_(h, mcMoveTarget_(RENAMES, name));
+      var safe = toIdx !== -1 && vals.every(function(r, k) {
+        if (mcNorm_(r[0]) === '') return true;
+        return mcNorm_(sheet.getRange(2 + k, toIdx + 1).getValues()[0][0]) === mcNorm_(r[0]);
+      });
+      if (filled > 0 && !safe) {
+        log.push('! ' + name + ' に ' + filled + '件データがあるため削除しませんでした（手で確認してください）');
         return;
       }
     }
@@ -107,7 +113,8 @@ function migrateContentMaster() {
 
   var text = out.join('\n');
   Logger.log(text);
-  SpreadsheetApp.getUi().alert(text);
+  // エディタから直接実行すると getUi() が応答しないことがあるため保護する
+  try { SpreadsheetApp.getUi().alert(text); } catch (e) {}
 }
 
 function mcHeader_(sheet) {
@@ -122,6 +129,12 @@ function mcFind_(header, name) {
   var t = mcNorm_(name);
   for (var i = 0; i < header.length; i++) if (mcNorm_(header[i]) === t) return i;
   return -1;
+}
+
+/** RENAMES から移行先の列名を引く */
+function mcMoveTarget_(renames, from) {
+  for (var i = 0; i < renames.length; i++) if (renames[i][0] === from) return renames[i][1];
+  return '';
 }
 
 function mcNorm_(v) {
