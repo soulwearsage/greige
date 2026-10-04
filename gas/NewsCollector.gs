@@ -383,3 +383,43 @@ function ncStripTags(s) {
 function ncGenId() {
   return 'NW' + new Date().getTime() + Math.floor(Math.random() * 1000);
 }
+
+// ─────────────────────────────────────────────────────────────
+// デバッグ用：実際のHTMLを確認する
+// ─────────────────────────────────────────────────────────────
+
+function ncDebugPrTimes() {
+  var url = 'https://prtimes.jp/main/action.php?run=html&page=releaseList&searchWord=' +
+            encodeURIComponent('Adidas');
+  var html = ncFetch(url);
+  if (!html) { Logger.log('取得失敗'); return; }
+  Logger.log('=== URL ===');
+  Logger.log(url);
+  Logger.log('=== HTML 先頭3000文字 ===');
+  Logger.log(html.slice(0, 3000));
+  Logger.log('=== <a href に /main/html/rd が含まれる行 ===');
+  var lines = html.split('\n');
+  lines.forEach(function(line) {
+    if (line.indexOf('/main/html/rd') !== -1 || line.indexOf('release') !== -1) {
+      Logger.log(line.trim().slice(0, 200));
+    }
+  });
+}
+
+function ncDebugAtPress() {
+  var url = 'https://www.atpress.ne.jp/search?keyword=' +
+            encodeURIComponent('Adidas') + '&sort=date';
+  var html = ncFetch(url);
+  if (!html) { Logger.log('取得失敗'); return; }
+  Logger.log('=== URL ===');
+  Logger.log(url);
+  Logger.log('=== HTML 先頭3000文字 ===');
+  Logger.log(html.slice(0, 3000));
+  Logger.log('=== releases を含む行 ===');
+  var lines = html.split('\n');
+  lines.forEach(function(line) {
+    if (line.indexOf('/releases/') !== -1 || line.indexOf('release') !== -1) {
+      Logger.log(line.trim().slice(0, 200));
+    }
+  });
+}
