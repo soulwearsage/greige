@@ -31,6 +31,9 @@ var NC_REQUIRE_IMAGE = true;
 var NC_INCLUDE_UNMATCHED = false;
 // 1実行の時間上限（GASの6分制限に対する安全マージン）
 var NC_TIME_BUDGET_MS = 290 * 1000;
+// 新着一覧を何ページ分まで辿るか（取得件数の最大化）
+var NC_AP_PAGES = 8;
+var NC_PR_PAGES = 6;
 
 // ボットUAだと弾くサイトがあるのでブラウザのUAを使う
 var NC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
@@ -81,22 +84,32 @@ function ncCollect(dryRun) {
 
   // ① 両サイト新着を一括取得してRSS照合用プールを作る
   NC_PR_FEED_CACHE = null;
-  var prFeed = ncLoadPrTimesFeed();
-  var apFeed = ncLoadAtPressFeed();
-  Logger.log('PR TIMES RSS: ' + prFeed.length + '件 / AT PRESS: ' + apFeed.length + '件');
+  var prFeed    = ncLoadPrTimesFeed();      // 公式RSS 200件
+  var prListing = ncLoadPrTimesListing();   // 新着一覧ページ
+  var apFeed    = ncLoadAtPressFeed();      // AT PRESS 新着一覧（複数ページ）
+  Logger.log('PR TIMES RSS ' + prFeed.length + '件 / PR TIMES一覧 ' + prListing.length +
+             '件 / AT PRESS ' + apFeed.length + '件');
 
   // ② RSS記事をキーワード照合（CULTURE・TOPICなど英語でも一致しやすいもの）
   var queue    = [];
   var seenUrls = {};
 
-  var combined = prFeed.concat(apFeed);
+  var combined = prFeed.concat(prListing).concat(apFeed);
   for (var j = 0; j < combined.length; j++) {
     var art = combined[j];
     if (!art.source_url || seenUrls[art.source_url]) continue;
-    var hay = (art.title + ' ' + art.summary).toLowerCase();
+
+    var rawHay  = (art.title + ' ' + art.summary).toLowerCase();
+    var normHay = ncNorm(art.title + ' ' + art.summary);
+
     for (var k = 0; k < keywords.length; k++) {
-      var kwText = String(keywords[k].keyword || '').toLowerCase();
-      if (kwText && hay.indexOf(kwText) !== -1) {
+      var terms = keywords[k].terms || ncKeywordTerms(keywords[k].keyword);
+      var hit   = false;
+      for (var t = 0; t < terms.length; t++) {
+        var hay = terms[t].normalized ? normHay : rawHay;
+        if (hay.indexOf(terms[t].t) !== -1) { hit = true; break; }
+      }
+      if (hit) {
         art._kw = keywords[k];
         seenUrls[art.source_url] = true;
         queue.push(art);
@@ -104,7 +117,7 @@ function ncCollect(dryRun) {
       }
     }
   }
-  Logger.log('RSS照合ヒット: ' + queue.length + '件');
+  Logger.log('キーワード照合ヒット: ' + queue.length + '件 / 記事 ' + combined.length + '件 / キーワード ' + keywords.length + '件');
 
   var saved = 0, noImage = 0, dup = 0, timeUp = false;
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
@@ -118,7 +131,10 @@ function ncCollect(dryRun) {
 
     var img = '';
     if (!dryRun) {
-      img = ncResolveArticle(art.source_url).image;
+      var resolved = ncResolveArticle(art.source_url);
+      img = resolved.image;
+      // 一覧スクレイプでタイトルが取れていない記事を og:title で補う
+      if ((!art.title || art.title.length < 3) && resolved.title) art.title = resolved.title;
       if (!img && NC_REQUIRE_IMAGE) {
         noImage++;
         Logger.log('\u00d7 \u753b\u50cf\u306a\u3057\u3067\u9664\u5916: ' + art.title.slice(0, 40));
@@ -147,7 +163,7 @@ function ncCollect(dryRun) {
     existUrls[art.source_url] = true;
     if (!dryRun) ncAppendRow(sheet, header, row);
     saved++;
-    Logger.log('\u2713 ' + art.title.slice(0, 40));
+    Logger.log('\u2713 ' + String(art.title || art.source_url).slice(0, 40));
   }
 
   var msg = (dryRun ? '\u300c\u30c9\u30e9\u30a4\u30e9\u30f3\u300d' : '\u300c\u53ce\u96c6\u5b8c\u4e86\u300d') + '\n' +
@@ -162,6 +178,90 @@ function ncCollect(dryRun) {
 // ─────────────────────────────────────────────────────────────
 // NEWS_KEYWORDS 読み込み
 // ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// キーワード正規化と別表記辞書
+//   英語キーワードは日本語記事タイトルにそのまま現れないことが多い。
+//   検索方式に戻さず、表記ゆれを吸収して一括照合でヒットさせる。
+// ─────────────────────────────────────────────────────────────
+
+/** 全角英数を半角にし、記号・空白を落として小文字化する */
+function ncNorm(s) {
+  if (!s) return '';
+  var t = String(s);
+  var out = '';
+  for (var i = 0; i < t.length; i++) {
+    var code = t.charCodeAt(i);
+    // 全角英数記号(FF01-FF5E) → 半角(21-7E)
+    if (code >= 0xFF01 && code <= 0xFF5E) code -= 0xFEE0;
+    // 全角スペース
+    if (code === 0x3000) code = 0x20;
+    out += String.fromCharCode(code);
+  }
+  return out
+    .toLowerCase()
+    .replace(/[\s\.\-_'’`"“”&,:;!\?\(\)\[\]\/\\\+]/g, '');
+}
+
+/** 英語キーワード(正規化後) → 日本語・カタカナ別表記 */
+var NC_KW_ALIASES = {
+  // BRAND
+  'apc':['アーペーセー'], 'acnestudios':['アクネストゥディオズ','アクネ'],
+  'adidas':['アディダス'], 'nike':['ナイキ'], 'puma':['プーマ'], 'reebok':['リーボック'],
+  'asics':['アシックス'], 'newbalance':['ニューバランス'], 'converse':['コンバース'],
+  'vans':['バンズ'], 'crocs':['クロックス'], 'birkenstock':['ビルケンシュトック'],
+  'drmartens':['ドクターマーチン'], 'salomon':['サロモン'], 'arcteryx':['アークテリクス'],
+  'hoka':['ホカ'], 'onrunning':['オンランニング'],
+  'gucci':['グッチ'], 'prada':['プラダ'], 'miumiu':['ミュウミュウ'],
+  'chanel':['シャネル'], 'dior':['ディオール'], 'fendi':['フェンディ'],
+  'hermes':['エルメス'], 'louisvuitton':['ルイヴィトン','ルイ・ヴィトン'],
+  'balenciaga':['バレンシアガ'], 'celine':['セリーヌ'], 'loewe':['ロエベ'],
+  'saintlaurent':['サンローラン'], 'bottegaveneta':['ボッテガヴェネタ'],
+  'valentino':['ヴァレンティノ'], 'versace':['ヴェルサーチ'], 'burberry':['バーバリー'],
+  'moncler':['モンクレール'], 'maisonmargiela':['メゾンマルジェラ','マルジェラ'],
+  'jilsander':['ジルサンダー'], 'lemaire':['ルメール'], 'therow':['ザロウ'],
+  'toteme':['トーテム'], 'ganni':['ガニー'], 'stoneisland':['ストーンアイランド'],
+  'uniqlo':['ユニクロ'], 'zara':['ザラ'], 'hm':['エイチアンドエム'],
+  'supreme':['シュプリーム'], 'stussy':['ステューシー'], 'carhartt':['カーハート'],
+  'patagonia':['パタゴニア'], 'thenorthface':['ノースフェイス'],
+  'nanamica':['ナナミカ'], 'sacai':['サカイ'],
+  'commedesgarcons':['コムデギャルソン','ギャルソン'],
+  'yohjiyamamoto':['ヨウジヤマモト'], 'isseymiyake':['イッセイミヤケ'],
+  'undercover':['アンダーカバー'], 'visvim':['ヴィスヴィム'], 'needles':['ニードルズ'],
+  'beams':['ビームス'], 'unitedarrows':['ユナイテッドアローズ'],
+  'journalstandard':['ジャーナルスタンダード'],
+  // PERSON
+  'pharrellwilliams':['ファレル・ウィリアムス','ファレル'],
+  'demnagvasalia':['デムナ・ヴァザリア','デムナ'],
+  'jonathananderson':['ジョナサン・アンダーソン'],
+  // CULTURE / TOPIC
+  'collaboration':['コラボ','コラボレーション'],
+  'brandcollaboration':['コラボ','コラボレーション'],
+  'capsulecollection':['カプセルコレクション'],
+  'collection':['コレクション'], 'runway':['ランウェイ'],
+  'sneaker':['スニーカー'], 'sneakers':['スニーカー'],
+  'denim':['デニム'], 'vintage':['ヴィンテージ','ビンテージ'],
+  'streetwear':['ストリート'], 'sustainability':['サステナブル','サステナビリティ'],
+  'popup':['ポップアップ'], 'flagshipstore':['旗艦店','フラッグシップ'],
+  'exhibition':['展示会','展覧会'],
+  '90sfashion':['90年代'], '90ssportswear':['90年代'], '2000sfashion':['2000年代'],
+};
+
+/** キーワード1件を照合用の語リストにする（正規化語 / 生語 / 別表記） */
+function ncKeywordTerms(keyword) {
+  var raw  = String(keyword || '').trim();
+  var norm = ncNorm(raw);
+  var terms = [];
+  if (norm.length >= 3) terms.push({ t: norm, normalized: true });
+  if (raw.length >= 2)  terms.push({ t: raw.toLowerCase(), normalized: false });
+  var aliases = NC_KW_ALIASES[norm];
+  if (aliases) {
+    for (var i = 0; i < aliases.length; i++) {
+      if (aliases[i].length >= 2) terms.push({ t: aliases[i].toLowerCase(), normalized: false });
+    }
+  }
+  return terms;
+}
 
 function ncLoadKeywords(ssId) {
   var ss       = SpreadsheetApp.openById(ssId);
@@ -189,7 +289,18 @@ function ncLoadKeywords(ssId) {
       if (!keyword) continue;
       if (enabled === false || String(enabled).toUpperCase() === 'FALSE') continue;
 
-      keywords.push({ keyword: keyword, category: category, type: tabName });
+      var terms = ncKeywordTerms(keyword);
+
+      // シートに別表記列があれば追加（aliases / keyword_ja / alt / 日本語表記）
+      ['aliases', 'keyword_ja', 'alt', '別表記', '日本語表記'].forEach(function(col) {
+        if (hmap[col] === undefined) return;
+        String(row[hmap[col]] || '').split(/[,;、\/|]/).forEach(function(a) {
+          var s = a.trim();
+          if (s.length >= 2) terms.push({ t: s.toLowerCase(), normalized: false });
+        });
+      });
+
+      keywords.push({ keyword: keyword, category: category, type: tabName, terms: terms });
     }
   });
 
@@ -311,37 +422,47 @@ function ncLoadPrTimesFeed() {
 
 /** CDATA対応でタグの中身を取り出す */
 function ncLoadAtPressFeed() {
-  var url  = 'https://www.atpress.ne.jp/?sort=date';
-  var html = ncFetch(url);
-  if (!html) { Logger.log('AT PRESS 一覧取得失敗'); return []; }
-
   var articles = [];
   var seen     = {};
 
-  // /news/数字 のリンクを全て抽出（AT PRESSの記事URL形式）
+  // ?sort=date&page=N を回して新着をできるだけ広く集める
+  for (var page = 1; page <= NC_AP_PAGES; page++) {
+    var url  = 'https://www.atpress.ne.jp/?sort=date' + (page > 1 ? '&page=' + page : '');
+    var html = ncFetch(url);
+    if (!html) { Logger.log('AT PRESS 取得失敗: page ' + page); continue; }
+
+    var before = articles.length;
+    ncParseAtPressListing(html, seen, articles);
+    var added = articles.length - before;
+    Logger.log('AT PRESS page ' + page + ': +' + added + '件 (累計 ' + articles.length + '件)');
+    if (added === 0 && page > 1) break;   // 新規が出なくなったら打ち切り
+  }
+
+  Logger.log('AT PRESS 合計: ' + articles.length + '件');
+  return articles;
+}
+
+/** AT PRESS一覧HTMLから /news/数字 の記事を抽出して articles に積む */
+function ncParseAtPressListing(html, seen, articles) {
   var re = /href="(\/news\/(\d+)[^"]*)"/gi;
   var m;
   while ((m = re.exec(html)) !== null) {
-    var path   = m[1].split('?')[0].split('#')[0];
+    var path    = m[1].split('?')[0].split('#')[0];
     var fullUrl = 'https://www.atpress.ne.jp' + path;
     if (seen[fullUrl]) continue;
     seen[fullUrl] = true;
 
-    // リンク周辺のブロックからタイトルと日付を抽出
     var pos   = m.index;
     var block = html.slice(Math.max(0, pos - 600), pos + 600);
 
-    // タイトル
     var titleM = block.match(/class="[^"]*(?:title|heading|name)[^"]*"[^>]*>([\s\S]*?)<\/(?:h[1-6]|p|span|a|div)/i);
     var title  = titleM ? ncStripTags(titleM[1]).trim() : '';
     if (!title) {
       var aM = block.match(/<a[^>]+href="[^"]*news\/\d+[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
       title  = aM ? ncStripTags(aM[1]).trim() : '';
     }
-    if (!title || title.length < 3) continue;
 
-    // 日付
-    var dateM = block.match(/(\d{4}[-\/\.]\d{2}[-\/\.]\d{2})/);
+    var dateM    = block.match(/(\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2})/);
     var newsDate = dateM ? dateM[1].replace(/[\/\.]/g, '-') : '';
 
     articles.push({
@@ -353,8 +474,58 @@ function ncLoadAtPressFeed() {
       image_url:   '',
     });
   }
+}
 
-  Logger.log('AT PRESS 一覧取得: ' + articles.length + '件');
+/** PR TIMES の新着一覧ページから記事を集める（キーワード検索ではない） */
+function ncLoadPrTimesListing() {
+  var articles = [];
+  var seen     = {};
+
+  var pages = ['https://prtimes.jp/'];
+  for (var n = 2; n <= NC_PR_PAGES; n++) {
+    pages.push('https://prtimes.jp/main/html/index/page/' + n);
+  }
+
+  for (var i = 0; i < pages.length; i++) {
+    var html = ncFetch(pages[i]);
+    if (!html) { Logger.log('PR TIMES 一覧取得失敗: ' + pages[i]); continue; }
+
+    var before = articles.length;
+    var re = /href="(\/main\/html\/rd\/p\/\d+\.\d+\.html)"/gi;
+    var m;
+    while ((m = re.exec(html)) !== null) {
+      var fullUrl = 'https://prtimes.jp' + m[1];
+      if (seen[fullUrl]) continue;
+      seen[fullUrl] = true;
+
+      var pos   = m.index;
+      var block = html.slice(Math.max(0, pos - 600), pos + 600);
+
+      var titleM = block.match(/class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/(?:h[1-6]|p|span|a|div)/i);
+      var title  = titleM ? ncStripTags(titleM[1]).trim() : '';
+      if (!title) {
+        var aM = block.match(/<a[^>]+href="[^"]*rd\/p\/[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
+        title  = aM ? ncStripTags(aM[1]).trim() : '';
+      }
+
+      var dateM    = block.match(/(\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2})/);
+      var newsDate = dateM ? dateM[1].replace(/[\/\.]/g, '-') : '';
+
+      articles.push({
+        title:       title,
+        source_url:  fullUrl,
+        source_name: 'PR TIMES',
+        news_date:   newsDate,
+        summary:     '',
+        image_url:   '',
+      });
+    }
+    var added = articles.length - before;
+    Logger.log('PR TIMES 一覧 ' + pages[i] + ': +' + added + '件');
+    if (added === 0 && i > 0) break;
+  }
+
+  Logger.log('PR TIMES 一覧合計: ' + articles.length + '件');
   return articles;
 }
 
@@ -809,10 +980,18 @@ function ncPickOgImage(html) {
  * Google News URL の場合は記事ページHTMLから実URLを拾い直す。
  * @return {{url:string, image:string}}
  */
+function ncPickOgTitle(html) {
+  if (!html) return '';
+  var m = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+  if (!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+  if (!m) m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return ncDecodeEntities(m ? ncStripTags(m[1]).trim() : '');
+}
+
 function ncResolveArticle(url) {
   var html = ncGetHtml(url);
   var img  = ncPickOgImage(html);
-  if (img) return { url: url, image: img };
+  if (img) return { url: url, image: img, title: ncPickOgTitle(html) };
 
   // 画像が取れない＝Google Newsの中継ページの可能性。実URLを探す。
   if (html) {
