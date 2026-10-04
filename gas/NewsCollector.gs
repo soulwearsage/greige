@@ -461,8 +461,22 @@ function ncDebugPrTimes() {
   var articles = ncSearchPrTimes(keyword);
   Logger.log('prtimes.jp「' + keyword + '」→ ' + articles.length + '件');
   articles.forEach(function(a) {
-    Logger.log(a.news_date + ' | ' + a.title.slice(0, 60) + '\n  ' + a.source_url);
+    Logger.log(a.news_date + ' | ' + a.title.slice(0, 60) + '\n  URL: ' + a.source_url + '\n  IMG: ' + (a.image_url || '（なし）'));
   });
+}
+
+/** RSSのdescription生テキストを確認する */
+function ncDebugRssDescription() {
+  var url = 'https://news.google.com/rss/search?q=' +
+            encodeURIComponent('site:prtimes.jp ファッション') +
+            '&hl=ja&gl=JP&ceid=JP:ja';
+  var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+  var text = res.getContentText();
+  // 最初の<item>だけ取り出す
+  var m = text.match(/<item>([\s\S]*?)<\/item>/i);
+  if (!m) { Logger.log('itemなし'); return; }
+  Logger.log('=== 最初のitem ===');
+  Logger.log(m[1].slice(0, 2000));
 }
 
 function ncDebugAtPress() {
