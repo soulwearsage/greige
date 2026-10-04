@@ -1502,14 +1502,15 @@ if (file_exists($cfg)) echo file_get_contents($cfg);
   function renderNewsGrid(){
     newsGrid.innerHTML = '';
     var visible = newsState.items.filter(function(n){
-      if (n.status === 'REJECTED' || n.status === 'DUPLICATE') return false;
+      // NEW（未判断）と REVIEW（HOLD）だけ表示。SELECT済み・REJECT・重複は消す
+      if (n.status !== 'NEW' && n.status !== 'REVIEW') return false;
       if (newsState.category !== 'ALL' && n.category !== newsState.category) return false;
       return true;
     });
     newsEmptyState.hidden = visible.length > 0;
     visible.forEach(function(n){
       var card = document.createElement('div');
-      card.className = 'card' + (n.status === 'SELECTED' ? ' is-decided' : '');
+      card.className = 'card';
 
       var thumb = document.createElement('div');
       thumb.className = 'thumb';
