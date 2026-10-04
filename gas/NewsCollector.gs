@@ -153,6 +153,14 @@ function ncLoadKeywords(ssId) {
 // NEWS_POOL 読み込み
 // ─────────────────────────────────────────────────────────────
 
+var NC_POOL_SCHEMA = [
+  'news_id', 'title', 'summary', 'source_url', 'source_name',
+  'news_date', 'collected_date', 'category', 'keywords', 'matched_keyword',
+  'image_url', 'ai_score', 'ai_reason', 'status', 'selected_date',
+  'selected_by', 'notes', 'image_saved', 'image_folder_url',
+  'news_master_id', 'created_at', 'updated_at',
+];
+
 function ncLoadPool(ssId, tabName) {
   var ss    = SpreadsheetApp.openById(ssId);
   var sheet = ss.getSheetByName(tabName);
@@ -167,6 +175,13 @@ function ncLoadPool(ssId, tabName) {
     if (lastCol >= 1) {
       header = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(v) { return String(v).trim(); });
     }
+  }
+
+  // ヘッダーが空なら自動でスキーマを書き込む
+  if (header.filter(function(h) { return h; }).length === 0) {
+    sheet.getRange(1, 1, 1, NC_POOL_SCHEMA.length).setValues([NC_POOL_SCHEMA]);
+    header = NC_POOL_SCHEMA.slice();
+    Logger.log('NEWS_POOL ヘッダーを初期化しました');
   }
 
   if (lastRow >= 2 && header.length > 0) {
