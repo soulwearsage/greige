@@ -245,9 +245,15 @@ function ncFetchGNewsRSS(rssUrl, defaultSource) {
     var descM = block.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
     var desc  = descM ? descM[1] : '';
 
-    // 元記事URL（description内の最初のhref）
+    // description は HTML エンティティでエスケープされている場合があるのでデコード
+    var descDecoded = desc
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
+
+    // 元記事URL（decodedのhrefから抽出）
     var origUrl = '';
-    var aM = desc.match(/href=["'](https?:\/\/[^"']+)["']/i);
+    var aM = descDecoded.match(/href=["'](https?:\/\/[^"']+)["']/i);
     if (aM) origUrl = aM[1];
 
     // <link>: Google News リダイレクトURL（フォールバック）
