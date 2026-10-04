@@ -43,6 +43,10 @@ var NC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 
 // メニュー
 // ─────────────────────────────────────────────────────────────
 
+function onOpen() {
+  onOpenNewsCollector();
+}
+
 function onOpenNewsCollector() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu('News Collect', [
     { name: '▶ Collect News (with images)',        functionName: 'collectNews' },
