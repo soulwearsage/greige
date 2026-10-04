@@ -105,6 +105,11 @@ var SCHEMA = [
   'word_count',
   'source_research_id',
   'scheduled_at',
+
+  // ── Claude API 制御 ──
+  'claude_api_enabled',
+  'claude_api_model',
+  'claude_api_status',
 ];
 
 // ─────────────────────────────────────────────────────────────
