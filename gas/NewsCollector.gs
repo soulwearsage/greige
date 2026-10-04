@@ -79,33 +79,42 @@ function ncCollect(dryRun) {
   var sheet     = pool.sheet;
   var header    = pool.header;
 
-  // 実記事URLが取れる唯一の経路。Google News は CBMi URL が復号できず
-  // og:image を取得できないので一切使わない。
-  NC_PR_FEED_CACHE = null;
-  var feed = ncLoadPrTimesFeed();
-  if (!feed.length) {
-    var ng = '公式RSSが取得できませんでした。収集を中止します。';
-    Logger.log(ng);
-    try { SpreadsheetApp.getUi().alert(ng); } catch (e) {}
-    return;
+  // キーワードごとに PR TIMES と AT PRESS を直接検索する
+  var queue = [];
+  var seenUrls = {};
+  var kwLimit = Math.min(keywords.length, NC_MAX_KEYWORDS);
+
+  for (var k = 0; k < kwLimit; k++) {
+    if (new Date().getTime() - t0 > NC_TIME_BUDGET_MS * 0.4) break;
+    var kwObj = keywords[k];
+    var kw    = kwObj.keyword;
+
+    // PR TIMES 検索
+    var prResults = ncSearchPrTimes(kw);
+    for (var p = 0; p < prResults.length; p++) {
+      var a = prResults[p];
+      if (a.source_url && !seenUrls[a.source_url]) {
+        a._kw = kwObj;
+        seenUrls[a.source_url] = true;
+        queue.push(a);
+      }
+    }
+
+    // AT PRESS 検索
+    var apResults = ncSearchAtPress(kw);
+    for (var ap = 0; ap < apResults.length; ap++) {
+      var b = apResults[ap];
+      if (b.source_url && !seenUrls[b.source_url]) {
+        b._kw = kwObj;
+        seenUrls[b.source_url] = true;
+        queue.push(b);
+      }
+    }
+
+    Logger.log('キーワード「' + kw + '」: PR TIMES ' + prResults.length + '件 / AT PRESS ' + apResults.length + '件');
   }
 
-  // キーワードに一致した記事を先に処理する
-  var matched = [], unmatched = [];
-  for (var i = 0; i < feed.length; i++) {
-    var a   = feed[i];
-    var hay = (a.title + ' ' + a.summary).toLowerCase();
-    var hit = null;
-    for (var k = 0; k < keywords.length; k++) {
-      var kwText = String(keywords[k].keyword || '').toLowerCase();
-      if (kwText && hay.indexOf(kwText) !== -1) { hit = keywords[k]; break; }
-    }
-    a._kw = hit;
-    if (hit) matched.push(a); else unmatched.push(a);
-  }
-  var queue = NC_INCLUDE_UNMATCHED ? matched.concat(unmatched) : matched;
-  Logger.log('RSS ' + feed.length + '件 / キーワード一致 ' + matched.length +
-             '件 / 処理対象 ' + queue.length + '件');
+  Logger.log('検索完了: 候補 ' + queue.length + '件 / キーワード ' + kwLimit + '個');
 
   var saved = 0, noImage = 0, dup = 0, timeUp = false;
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
@@ -127,7 +136,7 @@ function ncCollect(dryRun) {
       }
     }
 
-    var kw  = art._kw;
+    var kwRef = art._kw;
     var row = {
       news_id:         ncGenId(),
       title:           art.title,
@@ -136,9 +145,9 @@ function ncCollect(dryRun) {
       source_name:     art.source_name,
       news_date:       art.news_date,
       image_url:       img,
-      category:        kw ? kw.category : 'TREND',
-      matched_keyword: kw ? kw.keyword  : '',
-      keywords:        kw ? kw.keyword  : '',
+      category:        kwRef ? kwRef.category : 'TREND',
+      matched_keyword: kwRef ? kwRef.keyword  : '',
+      keywords:        kwRef ? kwRef.keyword  : '',
       collected_date:  today,
       status:          'NEW',
       created_at:      now,
