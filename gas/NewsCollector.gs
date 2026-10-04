@@ -22,7 +22,7 @@ var NC_MAX_PER_KEYWORD = 5;
 // 1回の実行で処理するキーワード数の上限（タイムアウト対策）
 var NC_MAX_KEYWORDS = 20;
 // 1回のループで収集する記事の合計上限
-var NC_MAX_TOTAL = 30;
+var NC_MAX_TOTAL = 100;
 // collectNewsLooped() が繰り返す回数
 var NC_COLLECT_LOOPS = 5;
 
