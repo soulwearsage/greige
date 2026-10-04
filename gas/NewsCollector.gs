@@ -26,15 +26,20 @@ var NC_MAX_TOTAL = 100;
 // collectNewsLooped() が繰り返す回数
 var NC_COLLECT_LOOPS = 5;
 
+// ボットUAだと弾くサイトがあるのでブラウザのUAを使う
+var NC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+            '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 // ─────────────────────────────────────────────────────────────
 // メニュー
 // ─────────────────────────────────────────────────────────────
 
 function onOpenNewsCollector() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu('ニュース収集', [
-    { name: '▶ ニュースを収集（30件・画像付き）', functionName: 'collectNews' },
-    { name: '▶ 画像URLだけ補完（既存記事）',     functionName: 'ncFillMissingImages' },
-    { name: '▶ ドライラン（確認のみ）',           functionName: 'collectNewsDryRun' },
+    { name: '▶ ニュースを収集（画像付き）',     functionName: 'collectNews' },
+    { name: '▶ 画像URLだけ補完（既存記事）',   functionName: 'ncFillMissingImages' },
+    { name: '▶ Google画像を消去（お掃除）',    functionName: 'ncClearGoogleImages' },
+    { name: '▶ 接続診断',                      functionName: 'ncDiagnose' },
   ]);
 }
 
@@ -249,7 +254,11 @@ function ncLoadPrTimesFeed() {
   var feeds = ['https://prtimes.jp/index.rdf', 'https://prtimes.jp/rss/index.rdf'];
   for (var f = 0; f < feeds.length; f++) {
     var xml = ncFetch(feeds[f]);
-    if (!xml || xml.indexOf('<item') === -1) continue;
+    if (!xml) { Logger.log('公式RSS NG(取得失敗): ' + feeds[f]); continue; }
+    if (xml.indexOf('<item') === -1) {
+      Logger.log('公式RSS NG(item無し): ' + feeds[f] + ' / 先頭: ' + xml.slice(0, 200));
+      continue;
+    }
 
     var items = [];
     var re = /<item[^>]*>([\s\S]*?)<\/item>/gi;
@@ -543,10 +552,19 @@ function ncFetch(url) {
     var res = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
       followRedirects: true,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GreigeBot/1.0)' },
+      deadline: 15,
+      headers: {
+        'User-Agent': NC_UA,
+        'Accept': 'application/rss+xml, application/xml, text/xml, text/html, */*',
+        'Accept-Language': 'ja,en;q=0.8',
+      },
     });
-    if (res.getResponseCode() !== 200) return null;
-    return res.getContentText();
+    var code = res.getResponseCode();
+    if (code !== 200) {
+      Logger.log('fetch HTTP ' + code + ': ' + url);
+      return null;
+    }
+    return res.getContentText('UTF-8');
   } catch (e) {
     Logger.log('fetch error: ' + url + ' / ' + e.message);
     return null;
@@ -613,9 +631,6 @@ function ncFillMissingImages() {
   Logger.log('画像URL更新: ' + updated + '件');
 }
 
-var NC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
-            '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
 function ncGetHtml(url) {
   try {
     var res = UrlFetchApp.fetch(url, {
@@ -631,13 +646,17 @@ function ncGetHtml(url) {
   }
 }
 
+/** Google側のロゴ/サムネは記事画像ではないので必ず弾く */
+function ncIsGoogleImage(url) {
+  return /googleusercontent\.com|gstatic\.com|ggpht\.com|google\.[a-z.]+\//i.test(url);
+}
+
 function ncPickOgImage(html) {
   if (!html) return '';
   var m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
   if (!m) m = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
   var img = m ? m[1] : '';
-  // Google 自身のロゴ画像は記事画像ではないので捨てる
-  if (/gstatic\.com|google\.com\/.*logo|news\.google\.com/i.test(img)) return '';
+  if (!img || ncIsGoogleImage(img)) return '';
   return img;
 }
 
@@ -663,6 +682,33 @@ function ncResolveArticle(url) {
     }
   }
   return { url: url, image: '' };
+}
+
+/**
+ * 既存行に入ってしまった Google のロゴ画像URLを空に戻す。
+ * 記事そのものは消さない。実行後に「画像URLだけ補完」で取り直せる。
+ */
+function ncClearGoogleImages() {
+  var props  = PropertiesService.getScriptProperties();
+  var pool   = ncLoadPool(props.getProperty('NEWS_POOL_ID')  || NC_POOL_ID,
+                          props.getProperty('NEWS_POOL_TAB') || NC_POOL_TAB);
+  var imgIdx = pool.header.indexOf('image_url');
+  if (imgIdx < 0) { Logger.log('image_url 列がありません'); return; }
+
+  var lastRow = pool.sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  var rng     = pool.sheet.getRange(2, imgIdx + 1, lastRow - 1, 1);
+  var vals    = rng.getValues();
+  var cleared = 0;
+  for (var i = 0; i < vals.length; i++) {
+    if (vals[i][0] && ncIsGoogleImage(String(vals[i][0]))) { vals[i][0] = ''; cleared++; }
+  }
+  rng.setValues(vals);
+
+  var msg = 'Google画像を消去: ' + cleared + '件';
+  Logger.log(msg);
+  try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
 }
 
 /** 後方互換: og:image だけ欲しいとき */
