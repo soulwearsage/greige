@@ -298,12 +298,10 @@ function ncFetchGNewsRSS(rssUrl, defaultSource) {
     var sourceName = srcM ? ncStripTags(srcM[1]).trim() : defaultSource;
     if (!sourceName) sourceName = defaultSource;
 
-    // description内のHTMLエンティティを戻す
     var descHtml = desc.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
 
-    // description内の <a href="実記事URL"> を取得（Google NewsリダイレクトURLより優先）
-    var aM      = descHtml.match(/<a[^>]+href=["'](https?:\/\/[^"']+)["']/i);
-    var realUrl = aM ? aM[1] : link;  // 取れなければGoogle NewsのlinkをURL
+    // Google NewsのCBMi URLをデコードして実際の記事URLを取得
+    var realUrl = ncDecodeGNewsUrl(gnLink) || gnLink;
 
     articles.push({
       title:       title,
@@ -316,6 +314,32 @@ function ncFetchGNewsRSS(rssUrl, defaultSource) {
   }
 
   return articles;
+}
+
+/**
+ * Google News RSS の CBMi... URL から実際の記事URLをデコードする。
+ * base64url デコードしてバイト列から http(s):// を探す。
+ */
+function ncDecodeGNewsUrl(gnUrl) {
+  var m = gnUrl.match(/\/articles\/(CBMi[^?&#\s]+)/);
+  if (!m) return '';
+  try {
+    var bytes = Utilities.base64DecodeWebSafe(m[1]);
+    for (var i = 0; i < bytes.length - 4; i++) {
+      // 'h'=104 't'=116 't'=116 'p'=112
+      if (bytes[i] === 104 && bytes[i+1] === 116 && bytes[i+2] === 116 && bytes[i+3] === 112) {
+        var chars = [];
+        for (var j = i; j < bytes.length; j++) {
+          if (bytes[j] < 0x20) break;
+          chars.push(String.fromCharCode(bytes[j]));
+        }
+        return chars.join('');
+      }
+    }
+    return '';
+  } catch(e) {
+    return '';
+  }
 }
 
 function ncParsePubDate(pubDate) {
