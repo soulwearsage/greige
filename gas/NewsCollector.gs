@@ -268,14 +268,16 @@ function ncDebugBulkCollect() {
   Logger.log('キーワード総数: ' + keywords.length);
 
   NC_PR_FEED_CACHE = null;
-  var prFeed   = ncLoadPrTimesFeed();
-  var prTopics = ncLoadPrTimesTopics();
-  var apFeed   = ncLoadAtPressFeed();
+  var prFeed    = ncLoadPrTimesFeed();
+  var prTopics  = ncLoadPrTimesTopics();
+  var prFashion = ncLoadPrTimesFashionSearch();
+  var apFeed    = ncLoadAtPressFeed();
 
   Logger.log('=== 取得件数 ===');
-  Logger.log('PR TIMES RSS: '       + prFeed.length);
-  Logger.log('PR TIMES トピック: '  + prTopics.length);
-  Logger.log('AT PRESS: '           + apFeed.length);
+  Logger.log('PR TIMES RSS: '          + prFeed.length);
+  Logger.log('PR TIMES トピック: '     + prTopics.length);
+  Logger.log('PR TIMES ファッション検索: ' + prFashion.length);
+  Logger.log('AT PRESS: '              + apFeed.length);
 
   // AT PRESS のタイトル取得状況
   var apNoTitle = 0;
@@ -287,7 +289,7 @@ function ncDebugBulkCollect() {
   prTopics.forEach(function(a) { if (!a.title || a.title.length < 3) prNoTitle++; });
   Logger.log('PR TIMES トピック タイトルなし: ' + prNoTitle + '件');
 
-  var combined = prFeed.concat(prTopics).concat(apFeed);
+  var combined = prFeed.concat(prTopics).concat(prFashion).concat(apFeed);
   Logger.log('=== 合計記事: ' + combined.length + '件 ===');
 
   // キーワード照合
@@ -298,6 +300,8 @@ function ncDebugBulkCollect() {
   for (var j = 0; j < combined.length; j++) {
     var art = combined[j];
     if (!art.source_url || seenUrls[art.source_url]) continue;
+    // ジャンルフィルタ（アニメ・ゲーム・食品等を除外）
+    if (!ncIsFashionGenre(art.title + ' ' + art.summary)) continue;
     var rawHay  = (art.title + ' ' + art.summary).toLowerCase();
     var normHay = ncNorm(art.title + ' ' + art.summary);
 
@@ -338,6 +342,7 @@ function ncDebugBulkCollect() {
   var msg = '収集診断結果:\n' +
     'PR TIMES RSS: ' + prFeed.length + '件\n' +
     'PR TIMES トピック: ' + prTopics.length + '件\n' +
+    'PR TIMES ファッション検索: ' + prFashion.length + '件\n' +
     'AT PRESS: ' + apFeed.length + '件\n' +
     '合計: ' + combined.length + '件\n' +
     'キーワードヒット: ' + queue.length + '件\n' +
@@ -376,22 +381,24 @@ function ncCollect(dryRun) {
   var header    = pool.header;
 
   // ① 両サイト新着を一括取得してRSS照合用プールを作る
-  // ※ PR TIMES 汎用一覧（全カテゴリ）は使わない。ファッション・美容・ライフスタイル
-  //    トピックページと AT PRESS のみを対象とし、ジャンル外の記事混入を防ぐ。
   NC_PR_FEED_CACHE = null;
-  var prFeed   = ncLoadPrTimesFeed();    // ファッション・美容トピックRSS（topics/11, /46 等）
-  var prTopics = ncLoadPrTimesTopics();  // ファッション・美容・ライフスタイルトピックページ
-  var apFeed   = ncLoadAtPressFeed();    // AT PRESS 新着一覧（複数ページ）
-  Logger.log('PR TIMES RSS ' + prFeed.length + '件 / PR TIMESトピック ' + prTopics.length + '件 / AT PRESS ' + apFeed.length + '件');
+  var prFeed    = ncLoadPrTimesFeed();          // PR TIMES 公式RSS（ファッション系topics優先）
+  var prTopics  = ncLoadPrTimesTopics();        // PR TIMES トピックページ（HTML）
+  var prFashion = ncLoadPrTimesFashionSearch(); // PR TIMES ファッション検索（fetchAll並列）
+  var apFeed    = ncLoadAtPressFeed();          // AT PRESS 新着一覧（複数ページ）
+  Logger.log('PR TIMES RSS ' + prFeed.length + '件 / トピック ' + prTopics.length + '件 / ファッション検索 ' + prFashion.length + '件 / AT PRESS ' + apFeed.length + '件');
 
   // ② RSS記事をキーワード照合（CULTURE・TOPICなど英語でも一致しやすいもの）
   var queue    = [];
   var seenUrls = {};
 
-  var combined = prFeed.concat(prTopics).concat(apFeed);
+  var combined = prFeed.concat(prTopics).concat(prFashion).concat(apFeed);
   for (var j = 0; j < combined.length; j++) {
     var art = combined[j];
     if (!art.source_url || seenUrls[art.source_url]) continue;
+
+    // ファッション・美容・ライフスタイル以外のジャンルを事前フィルタリング
+    if (!ncIsFashionGenre(art.title + ' ' + art.summary)) continue;
 
     var rawHay  = (art.title + ' ' + art.summary).toLowerCase();
     var normHay = ncNorm(art.title + ' ' + art.summary);
@@ -686,6 +693,140 @@ function ncAppendRow(sheet, header, art) {
 // 経路B（代替）: Google News RSS。CBMi URLは暗号化されていて復号できないため、
 //                記事ページを1回開いて実URLを取り出す。
 // ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// ファッション・美容・ライフスタイル ジャンル判定
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 記事テキストがファッション・美容・ライフスタイル関連かどうか判定する。
+ * アニメ・ゲーム・食品・スポーツイベント等のジャンル外を弾く。
+ * true = ファッション/美容/ライフスタイル系、false = 除外
+ */
+function ncIsFashionGenre(text) {
+  if (!text) return false;
+  var t = text.toLowerCase();
+
+  // 除外ワード: これらが含まれる記事はジャンル外として弾く
+  var NG_TERMS = [
+    'アニメ', 'anime', 'マンガ', '漫画', '声優', 'ゲーム', 'game', 'ゲームキャラ',
+    'コスプレ', 'cosplay', '同人', 'ライトノベル', 'ラノベ', 'vtuber', 'vチューバー',
+    'アイドル', 'idol', 'k-pop', 'kpop', 'j-pop', 'jpop',
+    'ラーメン', 'ramen', '居酒屋', '焼肉', 'グルメ', 'レシピ', '食材', '調理',
+    'スポーツカー', 'auto', 'モータースポーツ', '競馬', '競輪', 'パチンコ',
+    '不動産', '保険', '金融', '株式', '仮想通貨', '暗号通貨', 'crypto',
+    '医療', '病院', '製薬', 'クリニック',
+    '葬儀', '婚活', '就活',
+  ];
+  for (var i = 0; i < NG_TERMS.length; i++) {
+    if (t.indexOf(NG_TERMS[i]) !== -1) return false;
+  }
+
+  // 必要条件: ファッション・美容・ライフスタイル系の語を少なくとも1つ含む
+  var OK_TERMS = [
+    'ファッション', 'fashion', 'スタイル', 'style', 'コーデ', 'コーディネート',
+    '美容', 'beauty', 'コスメ', 'cosme', 'メイク', 'makeup', 'スキンケア', 'skincare',
+    'フレグランス', '香水', 'perfume', 'fragrance',
+    'ブランド', 'brand', 'コレクション', 'collection',
+    'トレンド', 'trend', 'ストリート', 'street',
+    'バッグ', 'bag', '財布', 'wallet', 'ジュエリー', 'jewelry', 'アクセサリー',
+    'シューズ', 'shoes', 'スニーカー', 'sneaker', 'ブーツ', 'boots',
+    'アパレル', 'apparel', '衣料', '服', 'ウェア', 'wear', 'ドレス', 'dress',
+    'ライフスタイル', 'lifestyle', 'インテリア', 'interior', 'ホーム', 'home',
+    'コラボ', 'collab', 'collaboration', 'ポップアップ', 'pop-up', 'popup',
+    'ランウェイ', 'runway', 'デザイナー', 'designer',
+    // ブランド名
+    'ユニクロ', 'uniqlo', 'zara', 'h&m', 'エイチアンドエム',
+    'ルイヴィトン', 'シャネル', 'プラダ', 'グッチ', 'エルメス', 'ディオール',
+    'ナイキ', 'アディダス', 'ニューバランス', 'コンバース',
+  ];
+  for (var j = 0; j < OK_TERMS.length; j++) {
+    if (t.indexOf(OK_TERMS[j]) !== -1) return true;
+  }
+
+  // 上記どちらにも一致しない場合は通過（キーワード照合に任せる）
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────
+// PR TIMES ファッション系キーワード検索（fetchAll 並列）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * PR TIMES の検索ページをファッション・美容系キーワードで並列取得。
+ * UrlFetchApp.fetchAll() で全キーワードを同時リクエストして時間短縮。
+ */
+function ncLoadPrTimesFashionSearch() {
+  var fashionKeywords = [
+    'ファッション', '美容', 'コスメ', 'スキンケア', 'ブランド',
+    'コレクション', 'ライフスタイル', 'スニーカー', 'バッグ', 'コラボ ファッション'
+  ];
+
+  var baseUrl = 'https://prtimes.jp/main/action.php?run=html&page=searchkey&search_word=';
+  var requests = fashionKeywords.map(function(kw) {
+    return {
+      url: baseUrl + encodeURIComponent(kw),
+      muteHttpExceptions: true,
+      followRedirects: true,
+      deadline: 15,
+      headers: { 'User-Agent': NC_UA }
+    };
+  });
+
+  var responses;
+  try {
+    responses = UrlFetchApp.fetchAll(requests);
+  } catch(e) {
+    Logger.log('PR TIMES ファッション検索 fetchAll エラー: ' + e.message);
+    return [];
+  }
+
+  var articles = [];
+  var seen = {};
+
+  for (var i = 0; i < responses.length; i++) {
+    try {
+      if (responses[i].getResponseCode() !== 200) continue;
+      var html = responses[i].getContentText('UTF-8');
+      var linkRe = /href="(\/main\/html\/rd\/p\/\d+\.\d+\.html)"/gi;
+      var m;
+      while ((m = linkRe.exec(html)) !== null) {
+        var fullUrl = 'https://prtimes.jp' + m[1];
+        if (seen[fullUrl]) continue;
+        seen[fullUrl] = true;
+
+        var pos   = m.index;
+        var block = html.slice(Math.max(0, pos - 600), pos + 600);
+        var title = '';
+        var titleM = block.match(/class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/(?:h[1-6]|p|a|span|div)/i);
+        if (titleM) title = ncStripTags(titleM[1]).trim();
+        if (!title) {
+          var aM = block.match(/<a[^>]+href="[^"]*rd\/p\/[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
+          if (aM) title = ncStripTags(aM[1]).trim();
+        }
+        if (!title || title.length < 3) continue;
+
+        var dateM = block.match(/(\d{4}[-\/]\d{2}[-\/]\d{2})/);
+        var imgM  = block.match(/<img[^>]+src="(https?:[^"]+\.(?:jpe?g|png|webp)[^"]*)"/i);
+        var imgUrl = (imgM && !ncIsGenericImage(imgM[1])) ? imgM[1] : '';
+
+        articles.push({
+          title:       title,
+          source_url:  fullUrl,
+          source_name: 'PR TIMES',
+          news_date:   dateM ? dateM[1].replace(/\//g, '-') : '',
+          summary:     '',
+          image_url:   imgUrl,
+        });
+      }
+    } catch(e) {
+      Logger.log('PR TIMES ファッション検索 parse エラー[' + i + ']: ' + e.message);
+    }
+  }
+
+  Logger.log('PR TIMES ファッション検索: ' + articles.length + '件');
+  return articles;
+}
 
 // 1実行内で使い回す公式RSSのキャッシュ（null=未取得, []=取得失敗）
 var NC_PR_FEED_CACHE = null;
