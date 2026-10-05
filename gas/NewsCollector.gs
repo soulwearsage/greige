@@ -337,7 +337,6 @@ function ncDebugBulkCollect() {
   Logger.log('=== 経過時間: ' + Math.round((new Date().getTime() - t0) / 1000) + '秒 ===');
   var msg = '収集診断結果:\n' +
     'PR TIMES RSS: ' + prFeed.length + '件\n' +
-    'PR TIMES 一覧: ' + prListing.length + '件\n' +
     'PR TIMES トピック: ' + prTopics.length + '件\n' +
     'AT PRESS: ' + apFeed.length + '件\n' +
     '合計: ' + combined.length + '件\n' +
@@ -414,16 +413,47 @@ function ncCollect(dryRun) {
   }
   Logger.log('キーワード照合ヒット: ' + queue.length + '件 / 記事 ' + combined.length + '件 / キーワード ' + keywords.length + '件');
 
-  var saved = 0, dup = 0;
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
   var now   = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
 
-  for (var q = 0; q < queue.length && saved < NC_MAX_TOTAL; q++) {
-    var art = queue[q];
-    if (!art.source_url || existUrls[art.source_url]) { dup++; continue; }
+  // 重複除去済みの候補を上限まで絞る
+  var candidates = [];
+  for (var q = 0; q < queue.length && candidates.length < NC_MAX_TOTAL; q++) {
+    if (!queue[q].source_url || existUrls[queue[q].source_url]) continue;
+    candidates.push(queue[q]);
+  }
+  Logger.log('重複除去後: ' + candidates.length + '件');
 
-    // 一覧・RSSから取れた画像URLをそのまま使う（個別URL取得はしない → タイムアウト回避）
-    var img = art.image_url || '';
+  // 画像URLが未取得の記事だけ fetchAll で並列取得
+  if (!dryRun) {
+    var noImgArts = candidates.filter(function(a) { return !a.image_url; });
+    if (noImgArts.length > 0) {
+      var requests = noImgArts.map(function(a) {
+        return { url: a.source_url, muteHttpExceptions: true, followRedirects: true,
+                 deadline: 10, headers: { 'User-Agent': NC_UA } };
+      });
+      var responses = UrlFetchApp.fetchAll(requests);
+      for (var r = 0; r < responses.length; r++) {
+        try {
+          if (responses[r].getResponseCode() === 200) {
+            var html = responses[r].getContentText('UTF-8');
+            var img  = ncPickOgImage(html);
+            if (img) {
+              noImgArts[r].image_url = img;
+              if (!noImgArts[r].title || noImgArts[r].title.length < 3)
+                noImgArts[r].title = ncPickOgTitle(html) || noImgArts[r].title;
+            }
+          }
+        } catch(e) { Logger.log('fetchAll error: ' + e.message); }
+      }
+      Logger.log('fetchAll完了: ' + Math.round((new Date().getTime() - t0)/1000) + '秒');
+    }
+  }
+
+  var saved = 0, noImage = 0, dup = 0;
+  for (var s = 0; s < candidates.length; s++) {
+    var art = candidates[s];
+    if (!art.image_url) { noImage++; continue; } // 画像なしは除外
 
     var kwRef = art._kw;
     var row = {
@@ -433,7 +463,7 @@ function ncCollect(dryRun) {
       source_url:      art.source_url,
       source_name:     art.source_name,
       news_date:       art.news_date,
-      image_url:       img,
+      image_url:       art.image_url,
       category:        kwRef ? kwRef.category : 'TREND',
       matched_keyword: kwRef ? kwRef.keyword  : '',
       keywords:        kwRef ? kwRef.keyword  : '',
@@ -449,14 +479,11 @@ function ncCollect(dryRun) {
     Logger.log('✓ ' + String(art.title || art.source_url).slice(0, 40));
   }
 
-  var noImgCount = 0;
-  for (var q2 = 0; q2 < queue.length; q2++) { if (!queue[q2].image_url) noImgCount++; }
-
   var msg = (dryRun ? '「ドライラン」' : '「収集完了」') + '\n' +
-    '新規保存: ' + saved + '件\n' +
+    '新規保存: ' + saved + '件（すべて画像付き）\n' +
+    '画像なしで除外: ' + noImage + '件\n' +
     '重複スキップ: ' + dup + '件\n' +
-    '画像なし記事: ' + noImgCount + '件\n' +
-    '→ メニュー「Fill Missing Images」で画像を補完できます';
+    '経過時間: ' + Math.round((new Date().getTime() - t0)/1000) + '秒';
   Logger.log(msg);
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) {}
 }
